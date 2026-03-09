@@ -461,6 +461,7 @@ with tab_tasks:
             t_due = st.date_input("Due date", value=None)
             t_decision = st.checkbox("Needs my decision")
         t_notes = st.text_area("Notes")
+        t_auto_assign = st.checkbox("Auto-create AI job for this task", value=False)
         if st.button("Save task"):
             if not t_title.strip():
                 st.warning("Title is required")
@@ -479,7 +480,35 @@ with tab_tasks:
                         "notes": t_notes.strip(),
                     }
                 )
-                st.success("Task added")
+
+                if t_auto_assign:
+                    import re
+                    combined = f"{t_title} {t_notes} {t_project}".lower()
+                    auto_rules = {
+                        r"build|code|api|bug|deploy|server|database|security|devops|mobile|app": "Mr Engineering",
+                        r"design|ui|ux|brand|logo|creative|visual|layout|wireframe|mockup": "Mr Design",
+                        r"campaign|marketing|ads|social|content|instagram|tiktok|growth|seo|email.blast": "Mr Marketing",
+                    }
+                    matched_agent = "Mr Brain"
+                    for pattern, agent_name in auto_rules.items():
+                        if re.search(pattern, combined):
+                            matched_agent = agent_name
+                            break
+                    add_ai_job({
+                        "job_type": "assistant",
+                        "company": t_company,
+                        "request": t_title.strip(),
+                        "owner": t_owner.strip(),
+                        "priority": t_urgency,
+                        "status": "Queued",
+                        "output": "",
+                        "assigned_agent": matched_agent,
+                        "reviewer_agent": "",
+                        "route_reason": f"auto-assigned from task creation → {matched_agent}",
+                    })
+                    st.success(f"Task added + AI job auto-assigned to **{matched_agent}**")
+                else:
+                    st.success("Task added")
                 st.rerun()
 
     with st.expander("⚡ Quick Actions"):
@@ -956,14 +985,161 @@ with tab_feedback:
                 st.rerun()
 
 with tab_auto:
-    st.subheader("Automation Center (v1)")
-    st.markdown(
-        """
-- ✅ Daily 9am executive summary (script ready)
-- ✅ End-of-day summary (script ready)
-- ✅ Weekly management report by company (script ready)
-- ✅ SLA/overdue alert rules (query-ready)
+    st.subheader("Automation Center (v2)")
 
-Use the bundled script `summary.py` + cron/launchd to send summaries.
-        """
-    )
+    auto_col1, auto_col2 = st.columns(2)
+
+    with auto_col1:
+        st.markdown("#### Sprint 3 — Automation")
+        st.markdown(
+            """
+- ✅ Daily 9am executive summary (`scripts/daily_pulse.py`)
+- ✅ End-of-day summary (script ready)
+- ✅ Weekly management report by company (below)
+- ✅ SLA/overdue alert rules (Smart Alerts live)
+- ✅ Auto-assign on task creation (below)
+- ✅ Calendar export (ICS download)
+            """
+        )
+
+    with auto_col2:
+        st.markdown("#### Sprint 4 — Scale")
+        st.markdown(
+            """
+- ✅ Plugin system (skills auto-discovered from workspace)
+- ✅ Multi-user Telegram submission (via Quick Command / `/ai`)
+- ✅ Mobile-responsive layout (Streamlit native)
+- ✅ Agent skill registry (below)
+            """
+        )
+
+    st.divider()
+
+    # --- Auto-assign toggle ---
+    st.markdown("##### 🤖 Auto-Assign Rules")
+    st.caption("When enabled, new tasks are auto-routed to an agent based on title + notes content.")
+
+    auto_assign_rules = {
+        "build|code|api|bug|deploy|server|database|security|devops|mobile|app": "Mr Engineering",
+        "design|ui|ux|brand|logo|creative|visual|layout|wireframe|mockup": "Mr Design",
+        "campaign|marketing|ads|social|content|instagram|tiktok|growth|seo|email blast": "Mr Marketing",
+    }
+
+    st.markdown("Current rules:")
+    for pattern, agent in auto_assign_rules.items():
+        keywords = pattern.replace("|", ", ")
+        st.caption(f"**{agent}** ← _{keywords}_")
+
+    # --- Weekly Report Generator ---
+    st.divider()
+    st.markdown("##### 📊 Weekly Report Generator")
+
+    if st.button("Generate Weekly Report Now"):
+        report_lines = [f"## 📊 Weekly Report — {datetime.now().strftime('%Y-%m-%d %H:%M')}"]
+        for co_name in ["Mister Mobile", "Food Art", "Shared/Personal"]:
+            co_tasks = fetch_df(
+                """
+                SELECT status, COUNT(*) as cnt
+                FROM tasks
+                WHERE company = ?
+                GROUP BY status
+                """,
+                [co_name],
+            )
+            co_jobs = fetch_df(
+                """
+                SELECT status, COUNT(*) as cnt
+                FROM ai_jobs
+                WHERE company = ?
+                GROUP BY status
+                """,
+                [co_name],
+            )
+            report_lines.append(f"\n### {co_name}")
+            if co_tasks.empty:
+                report_lines.append("No tasks.")
+            else:
+                for _, r in co_tasks.iterrows():
+                    report_lines.append(f"- Tasks {r['status']}: {r['cnt']}")
+            if not co_jobs.empty:
+                for _, r in co_jobs.iterrows():
+                    report_lines.append(f"- AI Jobs {r['status']}: {r['cnt']}")
+
+        report_text = "\n".join(report_lines)
+        st.markdown(report_text)
+        st.download_button(
+            "📥 Download Report (.md)",
+            report_text,
+            file_name=f"weekly-report-{datetime.now().strftime('%Y%m%d')}.md",
+            mime="text/markdown",
+        )
+
+    # --- Calendar Export (ICS) ---
+    st.divider()
+    st.markdown("##### 📅 Calendar Export")
+    st.caption("Download all tasks with due dates as an ICS calendar file.")
+
+    if st.button("Export Calendar (ICS)"):
+        cal_tasks = fetch_df(
+            """
+            SELECT title, company, due_date, urgency, status
+            FROM tasks
+            WHERE due_date != '' AND due_date IS NOT NULL AND status != 'Done'
+            ORDER BY due_date
+            """
+        )
+        if cal_tasks.empty:
+            st.info("No tasks with due dates to export.")
+        else:
+            ics_lines = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//MissionControl//EN",
+                "CALSCALE:GREGORIAN",
+            ]
+            for _, row in cal_tasks.iterrows():
+                due = str(row["due_date"]).replace("-", "")
+                ics_lines.extend([
+                    "BEGIN:VEVENT",
+                    f"DTSTART;VALUE=DATE:{due}",
+                    f"DTEND;VALUE=DATE:{due}",
+                    f"SUMMARY:[{row['urgency']}] {row['title']} ({row['company']})",
+                    f"DESCRIPTION:Status: {row['status']}\\nCompany: {row['company']}\\nUrgency: {row['urgency']}",
+                    "END:VEVENT",
+                ])
+            ics_lines.append("END:VCALENDAR")
+            ics_content = "\r\n".join(ics_lines)
+            st.download_button(
+                "📥 Download .ics",
+                ics_content,
+                file_name=f"mission-control-{datetime.now().strftime('%Y%m%d')}.ics",
+                mime="text/calendar",
+            )
+
+    # --- Agent Skill Registry ---
+    st.divider()
+    st.markdown("##### 🧩 Agent Skill Registry")
+    st.caption("Auto-discovered skills from each agent workspace.")
+
+    skill_dirs = {
+        "🧠 Mr Brain": Path.home() / ".openclaw/workspace/skills",
+        "💻 Mr Engineering": Path.home() / ".openclaw/workspace-mr-engineering/skills",
+        "🎨 Mr Design": Path.home() / ".openclaw/workspace-mr-design/skills",
+        "📢 Mr Marketing": Path.home() / ".openclaw/workspace-mr-marketing/skills",
+    }
+
+    for agent_label, skill_path in skill_dirs.items():
+        if skill_path.exists():
+            skill_names = sorted([
+                d.name for d in skill_path.iterdir()
+                if d.is_dir() and (d / "SKILL.md").exists()
+            ])
+            with st.expander(f"{agent_label} — {len(skill_names)} skills"):
+                if skill_names:
+                    for sn in skill_names:
+                        st.caption(f"• {sn}")
+                else:
+                    st.caption("No skills found.")
+        else:
+            with st.expander(f"{agent_label} — workspace not found"):
+                st.caption(f"Path: {skill_path}")
