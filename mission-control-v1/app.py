@@ -8,6 +8,7 @@ import pandas as pd
 from db import (
     init_db, quick_seed, fetch_df, add_task, update_task, add_comm,
     add_ai_job, update_ai_job, add_trend, add_feedback, update_feedback, update_rice_score,
+    upsert_agent_status, push_activity, sync_agent_status,
 )
 
 st.set_page_config(page_title="Mr Kai's Mission Control", layout="wide", page_icon="🧭")
@@ -522,9 +523,131 @@ with st.expander("🎯 Today focus (Top 5)", expanded=True):
         st.dataframe(focus, use_container_width=True, hide_index=True)
 
 # ---------- Tabs ----------
-tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_trends, tab_feedback, tab_auto = st.tabs(
-    ["🤖 Team", "Tasks", "Escalations", "Communications", "AI Workers", "🔍 Trends", "💬 Feedback", "Automation"]
+tab_office, tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_trends, tab_feedback, tab_auto = st.tabs(
+    ["🏢 Office", "🤖 Team", "Tasks", "Escalations", "Communications", "AI Workers", "🔍 Trends", "💬 Feedback", "Automation"]
 )
+
+with tab_office:
+    st.subheader("🏢 Virtual Office — Live Floor View")
+    st.caption("See who's at their desk, what they're working on, and their recent output.")
+
+    # Sync all agent statuses
+    for aname in AGENTS:
+        sync_agent_status(aname)
+
+    STATUS_META = {
+        "Busy":    {"dot": "🟢", "label": "WORKING", "color": "#00B894", "pulse": True},
+        "Standby": {"dot": "🟡", "label": "STANDBY", "color": "#FDCB6E", "pulse": False},
+        "Idle":    {"dot": "⚪", "label": "IDLE",    "color": "#B2BEC3", "pulse": False},
+        "Away":    {"dot": "🔴", "label": "AWAY",    "color": "#D63031", "pulse": False},
+    }
+
+    statuses_df = fetch_df("SELECT * FROM agent_status")
+    agent_statuses = {row["agent_name"]: dict(row) for _, row in statuses_df.iterrows()} if not statuses_df.empty else {}
+
+    # Build desk cards as one HTML block (avoids column + unsafe_allow_html issues)
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;">'
+    for aname, ainfo in AGENTS.items():
+        s = agent_statuses.get(aname, {})
+        status = s.get("status", "Idle")
+        curr_task = s.get("current_task", "") or ""
+        started = s.get("started_at", "")
+        sm = STATUS_META.get(status, STATUS_META["Idle"])
+
+        elapsed_str = ""
+        if started:
+            try:
+                delta = datetime.now() - datetime.fromisoformat(started)
+                sec = int(delta.total_seconds())
+                if sec < 60: elapsed_str = "just now"
+                elif sec < 3600: elapsed_str = f"{sec // 60}m ago"
+                else: elapsed_str = f"{sec // 3600}h {(sec % 3600) // 60}m ago"
+            except Exception:
+                pass
+
+        task_line = f"💬 {curr_task}" if curr_task else "🪑 Nothing active"
+        elapsed_line = f'<div style="font-size:10px;color:#b2bec3;margin-top:6px;">⏱ {elapsed_str}</div>' if elapsed_str else ""
+        shadow = f"box-shadow:0 0 24px {sm['color']}30;" if sm["pulse"] else ""
+        pulse_anim = '<style>@keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}.pulse-dot{animation:pulse 1.5s infinite}</style>' if sm["pulse"] else ""
+        dot_class = "pulse-dot" if sm["pulse"] else ""
+
+        cards_html += (
+            f'{pulse_anim}'
+            f'<div style="border-radius:20px;border:2px solid {sm["color"]}40;'
+            f'background:linear-gradient(145deg,{ainfo["color"]}08,{ainfo["color"]}18);'
+            f'padding:20px 14px;text-align:center;min-height:220px;{shadow}position:relative;">'
+            f'<div style="position:absolute;top:10px;right:10px;font-size:10px;'
+            f'background:{sm["color"]}22;color:{sm["color"]};'
+            f'padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:1px;">'
+            f'<span class="{dot_class}">{sm["dot"]}</span> {sm["label"]}</div>'
+            f'<div style="font-size:56px;margin-bottom:6px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.15));">{ainfo["emoji"]}</div>'
+            f'<div style="font-weight:800;font-size:15px;color:#2d3436;">{aname}</div>'
+            f'<div style="font-size:10px;color:{ainfo["color"]};font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">{ainfo["role"]}</div>'
+            f'<div style="border-top:1px solid {ainfo["color"]}20;margin:8px 0;"></div>'
+            f'<div style="font-size:12px;color:#636e72;min-height:36px;line-height:1.5;">{task_line}</div>'
+            f'{elapsed_line}'
+            f'</div>'
+        )
+    cards_html += '</div>'
+    st.markdown(cards_html, unsafe_allow_html=True)
+
+    # Agent detail expanders (clickable)
+    for aname, ainfo in AGENTS.items():
+        s = agent_statuses.get(aname, {})
+        status = s.get("status", "Idle")
+        sm = STATUS_META.get(status, STATUS_META["Idle"])
+
+        with st.expander(f"{ainfo['emoji']} {aname} — {sm['dot']} {sm['label']}", expanded=False):
+            # Current jobs
+            agent_jobs = fetch_df("""
+                SELECT id, request, status, priority, output, updated_at
+                FROM ai_jobs
+                WHERE assigned_agent = ? AND status != 'Done'
+                ORDER BY
+                  CASE priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END,
+                  id DESC
+                LIMIT 10
+            """, [aname])
+
+            if agent_jobs.empty:
+                st.caption("No active jobs.")
+            else:
+                st.caption(f"**Active jobs ({len(agent_jobs)})**")
+                st.dataframe(agent_jobs, use_container_width=True, hide_index=True)
+
+            # Recent completed
+            done_jobs = fetch_df("""
+                SELECT id, request, output, updated_at
+                FROM ai_jobs
+                WHERE assigned_agent = ? AND status = 'Done'
+                ORDER BY updated_at DESC
+                LIMIT 5
+            """, [aname])
+
+            if not done_jobs.empty:
+                st.caption(f"**Recently completed ({len(done_jobs)})**")
+                for _, dj in done_jobs.iterrows():
+                    with st.expander(f"✅ #{dj['id']} — {str(dj['request'])[:60]}"):
+                        st.markdown(str(dj.get("output", "") or "No output saved."))
+
+            # Activity timeline
+            events = fetch_df("""
+                SELECT e.event_type, e.details, e.created_at
+                FROM ai_job_events e
+                JOIN ai_jobs j ON j.id = e.job_id
+                WHERE j.assigned_agent = ?
+                ORDER BY e.id DESC
+                LIMIT 10
+            """, [aname])
+
+            if not events.empty:
+                st.caption("**Recent activity**")
+                for _, ev in events.iterrows():
+                    ts = str(ev.get("created_at", ""))
+                    st.markdown(f"<div style='font-size:12px;color:#636e72;padding:2px 0;'>{'✏️' if ev['event_type']=='updated' else '➕'} {ev['details']} <span style='color:#b2bec3;'>({ts})</span></div>", unsafe_allow_html=True)
+
+    if st.button("🔄 Refresh Office View"):
+        st.rerun()
 
 with tab_team:
     st.subheader("Agent Team Overview")

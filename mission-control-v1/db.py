@@ -72,6 +72,23 @@ def init_db():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS agent_status (
+                agent_name TEXT PRIMARY KEY,
+                status TEXT DEFAULT 'Idle',
+                current_task TEXT DEFAULT '',
+                started_at TEXT DEFAULT '',
+                updated_at TEXT DEFAULT ''
+            );
+
+            CREATE TABLE IF NOT EXISTS activity_feed (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_name TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                job_id INTEGER,
+                created_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS trend_feed (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 company TEXT,
@@ -211,6 +228,48 @@ def update_ai_job(job_id: int, fields: dict):
             """,
             (job_id, "updated", details, fields["updated_at"]),
         )
+
+
+def upsert_agent_status(agent: str, status: str, task: str = ""):
+    ts = now_iso()
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO agent_status(agent_name, status, current_task, started_at, updated_at)
+            VALUES(?,?,?,?,?)
+            ON CONFLICT(agent_name) DO UPDATE SET
+              status=excluded.status,
+              current_task=excluded.current_task,
+              started_at=CASE WHEN excluded.status != agent_status.status THEN excluded.started_at ELSE agent_status.started_at END,
+              updated_at=excluded.updated_at
+        """, (agent, status, task, ts, ts))
+
+
+def push_activity(agent: str, event_type: str, message: str, job_id: int = None):
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO activity_feed(agent_name, event_type, message, job_id, created_at)
+            VALUES(?,?,?,?,?)
+        """, (agent, event_type, message, job_id, now_iso()))
+
+
+def sync_agent_status(agent: str):
+    jobs = fetch_df("""
+        SELECT status, request, updated_at FROM ai_jobs
+        WHERE assigned_agent=?
+        ORDER BY updated_at DESC LIMIT 20
+    """, [agent])
+    if jobs.empty:
+        upsert_agent_status(agent, "Idle")
+        return
+    in_prog = jobs[jobs["status"] == "In Progress"]
+    queued = jobs[jobs["status"] == "Queued"]
+    if not in_prog.empty:
+        latest = in_prog.iloc[0]
+        upsert_agent_status(agent, "Busy", str(latest["request"])[:80])
+    elif not queued.empty:
+        upsert_agent_status(agent, "Standby", f"{len(queued)} jobs queued")
+    else:
+        upsert_agent_status(agent, "Idle")
 
 
 def add_trend(data: dict):
