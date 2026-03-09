@@ -30,16 +30,40 @@ def load_agent_routing():
         return json.load(f)
 
 
-def suggest_agent(request_text: str, job_type: str, cfg: dict) -> str:
+def route_decision(request_text: str, job_type: str, cfg: dict) -> dict:
     txt = f"{job_type} {request_text}".lower().strip()
-    best_name = cfg.get("routingPolicy", {}).get("default", cfg.get("orchestrator", "Mr Brain"))
-    best_score = -1
+    default_agent = cfg.get("routingPolicy", {}).get("default", cfg.get("orchestrator", "Mr Brain"))
+
+    scores = {}
+    reasons = {}
     for agent in cfg.get("agents", []):
-        score = sum(1 for t in agent.get("triggers", []) if t.lower() in txt)
-        if score > best_score:
-            best_score = score
-            best_name = agent.get("name", best_name)
-    return best_name
+        name = agent.get("name", "")
+        triggers = [t.lower() for t in agent.get("triggers", [])]
+        matched = [t for t in triggers if t in txt]
+        score = len(matched)
+        # weighted hints by job type
+        if job_type in ["programmer", "assistant"] and name == "Mr Engineering":
+            score += 1
+        if job_type in ["graphic", "video"] and name == "Mr Design":
+            score += 1
+        if job_type in ["copy"] and name == "Mr Marketing":
+            score += 1
+
+        scores[name] = score
+        reasons[name] = matched
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    primary = ranked[0][0] if ranked else default_agent
+    secondary = ranked[1][0] if len(ranked) > 1 and ranked[1][1] > 0 else ""
+    confidence = ranked[0][1] - (ranked[1][1] if len(ranked) > 1 else 0)
+
+    reason_text = "matched: " + ", ".join(reasons.get(primary, [])) if reasons.get(primary) else "fallback routing by job type"
+    return {
+        "primary": primary,
+        "secondary": secondary,
+        "confidence": confidence,
+        "reason": reason_text,
+    }
 
 
 def build_agent_output(job: dict) -> str:
@@ -81,7 +105,7 @@ def build_agent_output(job: dict) -> str:
 
     return f"""### Mr Brain Draft ({now})
 **Objective:** {objective}
-**Owner Assignment:** {agent}
+**Owner Assignment:** {agent}{(' | Reviewer: ' + job.get('reviewer_agent')) if job.get('reviewer_agent') else ''}
 **Workplan:** Route, execute, review, and finalize.
 **Risks/Dependencies:** Capacity, missing input, timing.
 **Decision Needed:** Priority and deadline confirmation.
@@ -331,7 +355,7 @@ with tab_ai:
 
     jobs = fetch_df(
         """
-        SELECT id, assigned_agent, job_type, company, request, owner, priority, status, output
+        SELECT id, assigned_agent, reviewer_agent, job_type, company, request, owner, priority, status, route_reason, output
         FROM ai_jobs
         ORDER BY id DESC
         """
@@ -341,7 +365,7 @@ with tab_ai:
     with st.expander("⚙️ Run / Update AI job", expanded=True):
         active_jobs = fetch_df(
             """
-            SELECT id, assigned_agent, status, request
+            SELECT id, assigned_agent, reviewer_agent, status, request
             FROM ai_jobs
             ORDER BY id DESC
             LIMIT 200
@@ -351,19 +375,22 @@ with tab_ai:
             st.info("No AI jobs yet.")
         else:
             job_map = {
-                f"#{row['id']} — {row['assigned_agent'] or 'Mr Brain'} [{row['status']}] {str(row['request'])[:70]}": int(row["id"])
+                f"#{row['id']} — {row['assigned_agent'] or 'Mr Brain'}{' + ' + row['reviewer_agent'] if row['reviewer_agent'] else ''} [{row['status']}] {str(row['request'])[:70]}": int(row["id"])
                 for _, row in active_jobs.iterrows()
             }
             selected_job_label = st.selectbox("Pick job", list(job_map.keys()))
             selected_job_id = job_map[selected_job_label]
             selected_row = fetch_df(
                 """
-                SELECT id, assigned_agent, job_type, company, request, owner, priority, status, output
+                SELECT id, assigned_agent, reviewer_agent, route_reason, job_type, company, request, owner, priority, status, output
                 FROM ai_jobs
                 WHERE id = ?
                 """,
                 [selected_job_id],
             ).iloc[0].to_dict()
+
+            if selected_row.get("route_reason"):
+                st.caption(f"Routing note: {selected_row.get('route_reason')}")
 
             b1, b2, b3, b4 = st.columns(4)
             with b1:
@@ -402,8 +429,13 @@ with tab_ai:
         j_priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="jpriority")
 
         auto_route = st.checkbox("Auto-route with Mr Brain", value=True)
-        recommended = suggest_agent(j_req, j_type, routing_cfg)
+        decision = route_decision(j_req, j_type, routing_cfg)
+        recommended = decision["primary"]
+        reviewer = decision["secondary"]
         st.caption(f"Suggested agent: **{recommended}**")
+        st.caption(f"Why: {decision['reason']}")
+        if reviewer:
+            st.caption(f"Reviewer: **{reviewer}**")
 
         selectable_agents = agent_names if agent_names else ["Mr Engineering", "Mr Design", "Mr Marketing"]
         selected_agent = st.selectbox(
@@ -425,6 +457,8 @@ with tab_ai:
                         "status": "Queued",
                         "output": "",
                         "assigned_agent": recommended if auto_route else selected_agent,
+                        "reviewer_agent": reviewer if auto_route else "",
+                        "route_reason": decision["reason"] if auto_route else "manual assignment",
                     }
                 )
                 st.success("AI job queued")

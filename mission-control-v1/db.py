@@ -73,6 +73,10 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(ai_jobs)").fetchall()]
         if "assigned_agent" not in cols:
             conn.execute("ALTER TABLE ai_jobs ADD COLUMN assigned_agent TEXT DEFAULT 'Mr Brain'")
+        if "reviewer_agent" not in cols:
+            conn.execute("ALTER TABLE ai_jobs ADD COLUMN reviewer_agent TEXT DEFAULT ''")
+        if "route_reason" not in cols:
+            conn.execute("ALTER TABLE ai_jobs ADD COLUMN route_reason TEXT DEFAULT ''")
 
 
 def now_iso():
@@ -119,10 +123,17 @@ def add_ai_job(data: dict):
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO ai_jobs(job_type, company, request, owner, priority, status, output, assigned_agent, created_at, updated_at)
-            VALUES(:job_type,:company,:request,:owner,:priority,:status,:output,:assigned_agent,:created_at,:updated_at)
+            INSERT INTO ai_jobs(job_type, company, request, owner, priority, status, output, assigned_agent, reviewer_agent, route_reason, created_at, updated_at)
+            VALUES(:job_type,:company,:request,:owner,:priority,:status,:output,:assigned_agent,:reviewer_agent,:route_reason,:created_at,:updated_at)
             """,
-            {**data, "assigned_agent": data.get("assigned_agent", "Mr Brain"), "created_at": ts, "updated_at": ts},
+            {
+                **data,
+                "assigned_agent": data.get("assigned_agent", "Mr Brain"),
+                "reviewer_agent": data.get("reviewer_agent", ""),
+                "route_reason": data.get("route_reason", ""),
+                "created_at": ts,
+                "updated_at": ts,
+            },
         )
 
 
