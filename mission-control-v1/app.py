@@ -133,7 +133,7 @@ st.markdown("""
     <span style="font-size:42px;">🧭</span>
     <div>
         <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mr Kai's Mission Control</h1>
-        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Mister Mobile & Food Art · Powered by Mr Brain + 3 specialist agents</p>
+        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 3 specialist agents</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
