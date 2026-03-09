@@ -10,7 +10,7 @@ from db import (
     add_ai_job, update_ai_job, add_trend, add_feedback, update_feedback, update_rice_score,
 )
 
-st.set_page_config(page_title="Mission Control", layout="wide", page_icon="🧭")
+st.set_page_config(page_title="Mr Kai's Mission Control", layout="wide", page_icon="🧭")
 init_db()
 quick_seed()
 
@@ -124,8 +124,8 @@ st.markdown("""
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
     <span style="font-size:42px;">🧭</span>
     <div>
-        <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mission Control</h1>
-        <p style="margin:0; color:#888; font-size:14px;">Multi-company command center · Powered by Mr Brain + 3 specialist agents</p>
+        <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mr Kai's Mission Control</h1>
+        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Mister Mobile & Food Art · Powered by Mr Brain + 3 specialist agents</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -340,9 +340,9 @@ agent_names = [a.get("name") for a in routing_cfg.get("agents", []) if a.get("na
 with st.sidebar:
     st.markdown("""
     <div style="text-align:center; padding:16px 0 8px;">
-        <div style="font-size:36px;">🧭</div>
-        <div style="font-weight:800; font-size:18px; color:white; margin-top:4px;">Mission Control</div>
-        <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">v2.0 · Mr Brain</div>
+        <div style="font-size:36px;">👔</div>
+        <div style="font-weight:800; font-size:18px; color:white; margin-top:4px;">Mr Kai</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">Mission Control v2.0</div>
     </div>
     """, unsafe_allow_html=True)
 
