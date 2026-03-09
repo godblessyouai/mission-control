@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "orchestrator": "Mr Brain",
+  "orchestratorSkill": "mr-brain",
   "agents": [
     {
       "name": "Mr Engineering",

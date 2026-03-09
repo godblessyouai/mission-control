@@ -52,6 +52,7 @@ python3 summary.py
 ## Agent setup (v1.2 in progress)
 
 Mr Brain orchestration stack:
+- Mr Brain (orchestrator) → `skills/mr-brain`
 - Mr Engineering → `skills/mr-engineering`
 - Mr Design → `skills/mr-design`
 - Mr Marketing → `skills/mr-marketing`
