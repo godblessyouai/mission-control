@@ -109,25 +109,12 @@ st.markdown("""
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
-/* Keep sidebar toggle button visible and clickable */
-[data-testid="stSidebar"] button[kind="header"] {
-    color: white !important;
-    opacity: 1 !important;
+/* Hide sidebar completely */
+[data-testid="stSidebar"] {
+    display: none !important;
 }
 [data-testid="collapsedControl"] {
-    color: #333 !important;
-    opacity: 1 !important;
-    z-index: 999 !important;
-}
-button[data-testid="baseButton-headerNoPadding"] {
-    color: white !important;
-    opacity: 1 !important;
-}
-/* Sidebar collapse/expand arrow */
-[data-testid="stSidebar"] [data-testid="stSidebarCollapsedControl"],
-[data-testid="stSidebarCollapsedControl"] {
-    visibility: visible !important;
-    opacity: 1 !important;
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -241,7 +228,7 @@ with st.form("quick_command_form", clear_on_submit=True):
                 "job_type": "assistant",
                 "company": "Shared/Personal",
                 "request": quick_cmd.strip(),
-                "owner": "Boss Kai",
+                "owner": "Mr Kai",
                 "priority": "Medium",
                 "status": "Queued",
                 "output": "",
@@ -356,65 +343,33 @@ def build_agent_output(job: dict) -> str:
 routing_cfg = load_agent_routing()
 agent_names = [a.get("name") for a in routing_cfg.get("agents", []) if a.get("name")]
 
-# ---------- Sidebar ----------
-with st.sidebar:
-    st.markdown("""
-    <div style="text-align:center; padding:16px 0 8px;">
-        <div style="font-size:36px;">👔</div>
-        <div style="font-weight:800; font-size:18px; color:white; margin-top:4px;">Mr Kai</div>
-        <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">Mission Control v2.0</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # Quick stats in sidebar
-    sidebar_stats = fetch_df("""
-        SELECT
-          SUM(CASE WHEN status != 'Done' THEN 1 ELSE 0 END) as active,
-          SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
-        FROM tasks
-    """)
-    ss = sidebar_stats.iloc[0]
-    st.markdown(f"""
-    <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:12px;">
-        <div>
-            <div style="font-size:24px; font-weight:800; color:#6C5CE7;">{int(ss['active'] or 0)}</div>
-            <div style="font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase;">Active</div>
-        </div>
-        <div>
-            <div style="font-size:24px; font-weight:800; color:#00B894;">{int(ss['done'] or 0)}</div>
-            <div style="font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase;">Done</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("<p style='font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;'>🔍 Filters</p>", unsafe_allow_html=True)
-
+# ---------- Top filter bar ----------
 companies = ["All"] + fetch_df("SELECT name FROM companies ORDER BY name")["name"].tolist()
-company_f = st.sidebar.selectbox("Company", companies)
-owner_f = st.sidebar.text_input("Owner contains")
-text_f = st.sidebar.text_input("Search title/project/notes")
-urgency_f = st.sidebar.multiselect(
-    "Urgency",
-    ["Low", "Medium", "High", "Critical"],
-    default=["Low", "Medium", "High", "Critical"],
-)
-status_f = st.sidebar.multiselect(
-    "Task status",
-    ["Open", "In Progress", "Blocked", "Done", "Snoozed"],
-    default=["Open", "In Progress", "Blocked", "Done", "Snoozed"],
-)
-hide_done = st.sidebar.checkbox("Hide done tasks", value=True)
 
-with st.sidebar:
-    st.markdown("---")
-    st.markdown("<p style='font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;'>🤖 Agents online</p>", unsafe_allow_html=True)
-    for name, info in AGENTS.items():
-        st.markdown(f"<div style='font-size:13px; padding:2px 0;'>{info['emoji']} {name}</div>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown(f"<div style='font-size:10px; color:rgba(255,255,255,0.3); text-align:center;'>🕐 {datetime.now().strftime('%H:%M · %b %d, %Y')}</div>", unsafe_allow_html=True)
+with st.expander("🔍 Filters", expanded=False):
+    fc1, fc2, fc3, fc4, fc5, fc6 = st.columns([1.5, 1.5, 2, 2, 2, 1])
+    with fc1:
+        company_f = st.selectbox("Company", companies, key="top_company")
+    with fc2:
+        owner_f = st.text_input("Owner", key="top_owner")
+    with fc3:
+        text_f = st.text_input("Search", placeholder="title/project/notes", key="top_search")
+    with fc4:
+        urgency_f = st.multiselect(
+            "Urgency",
+            ["Low", "Medium", "High", "Critical"],
+            default=["Low", "Medium", "High", "Critical"],
+            key="top_urgency",
+        )
+    with fc5:
+        status_f = st.multiselect(
+            "Task status",
+            ["Open", "In Progress", "Blocked", "Done", "Snoozed"],
+            default=["Open", "In Progress", "Blocked", "Done", "Snoozed"],
+            key="top_status",
+        )
+    with fc6:
+        hide_done = st.checkbox("Hide done", value=True, key="top_hide_done")
 
 where = ["1=1"]
 params = []
