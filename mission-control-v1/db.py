@@ -126,6 +126,13 @@ def add_ai_job(data: dict):
         )
 
 
+def update_ai_job(job_id: int, fields: dict):
+    fields = {**fields, "updated_at": now_iso(), "id": job_id}
+    cols = ", ".join([f"{k}=:{k}" for k in fields.keys() if k != "id"])
+    with get_conn() as conn:
+        conn.execute(f"UPDATE ai_jobs SET {cols} WHERE id=:id", fields)
+
+
 def fetch_df(query: str, params=()):
     import pandas as pd
 

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
 
-from db import init_db, quick_seed, fetch_df, add_task, update_task, add_comm, add_ai_job
+from db import init_db, quick_seed, fetch_df, add_task, update_task, add_comm, add_ai_job, update_ai_job
 
 st.set_page_config(page_title="Mission Control", layout="wide")
 init_db()
@@ -40,6 +40,53 @@ def suggest_agent(request_text: str, job_type: str, cfg: dict) -> str:
             best_score = score
             best_name = agent.get("name", best_name)
     return best_name
+
+
+def build_agent_output(job: dict) -> str:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    agent = job.get("assigned_agent", "Mr Brain")
+    objective = job.get("request", "")
+    owner = job.get("owner", "") or "TBD"
+
+    if agent == "Mr Engineering":
+        return f"""### Mr Engineering Draft ({now})
+**Objective:** {objective}
+**Approach:** Break into architecture, implementation, and validation checkpoints.
+**Deliverables:** Code changes + technical checklist + deployment notes.
+**Risks:** Integration unknowns, dependency drift, timeline risk.
+**Validation:** Unit/integration checks + smoke test.
+**Next Action:** Confirm repo/module target and start implementation.
+"""
+
+    if agent == "Mr Design":
+        return f"""### Mr Design Draft ({now})
+**Objective:** {objective}
+**Context:** Company={job.get('company','')} | Owner={owner}
+**Design Direction:** Prioritize clarity, consistency, and conversion-friendly UX.
+**Deliverables:** Layout guidance, visual direction, UX notes.
+**QA Criteria:** Brand consistency + usability + handoff readiness.
+**Next Action:** Confirm audience and channel before final creative output.
+"""
+
+    if agent == "Mr Marketing":
+        return f"""### Mr Marketing Draft ({now})
+**Objective:** {objective}
+**Audience/Offer:** Define ICP + core offer for this campaign.
+**Strategy:** Hook → value → CTA with measurable funnel steps.
+**Channel Plan:** Primary channel + support channel + cadence.
+**KPI Targets:** Reach, CTR, leads/sales, conversion rate.
+**7-Day Actions:** Launch test creatives, measure, iterate.
+**Next Action:** Confirm budget and target segment.
+"""
+
+    return f"""### Mr Brain Draft ({now})
+**Objective:** {objective}
+**Owner Assignment:** {agent}
+**Workplan:** Route, execute, review, and finalize.
+**Risks/Dependencies:** Capacity, missing input, timing.
+**Decision Needed:** Priority and deadline confirmation.
+**Next Action:** Approve execution scope and begin run.
+"""
 
 
 routing_cfg = load_agent_routing()
@@ -291,6 +338,62 @@ with tab_ai:
     )
     st.dataframe(jobs, use_container_width=True, hide_index=True)
 
+    with st.expander("⚙️ Run / Update AI job", expanded=True):
+        active_jobs = fetch_df(
+            """
+            SELECT id, assigned_agent, status, request
+            FROM ai_jobs
+            ORDER BY id DESC
+            LIMIT 200
+            """
+        )
+        if active_jobs.empty:
+            st.info("No AI jobs yet.")
+        else:
+            job_map = {
+                f"#{row['id']} — {row['assigned_agent'] or 'Mr Brain'} [{row['status']}] {str(row['request'])[:70]}": int(row["id"])
+                for _, row in active_jobs.iterrows()
+            }
+            selected_job_label = st.selectbox("Pick job", list(job_map.keys()))
+            selected_job_id = job_map[selected_job_label]
+            selected_row = fetch_df(
+                """
+                SELECT id, assigned_agent, job_type, company, request, owner, priority, status, output
+                FROM ai_jobs
+                WHERE id = ?
+                """,
+                [selected_job_id],
+            ).iloc[0].to_dict()
+
+            b1, b2, b3, b4 = st.columns(4)
+            with b1:
+                if st.button("▶️ Run now"):
+                    update_ai_job(selected_job_id, {"status": "In Progress"})
+                    st.success("Job set to In Progress")
+                    st.rerun()
+            with b2:
+                if st.button("🧠 Generate draft output"):
+                    draft = build_agent_output(selected_row)
+                    update_ai_job(selected_job_id, {"status": "In Progress", "output": draft})
+                    st.success("Draft output generated")
+                    st.rerun()
+            with b3:
+                if st.button("✅ Mark done"):
+                    update_ai_job(selected_job_id, {"status": "Done"})
+                    st.success("Job marked Done")
+                    st.rerun()
+            with b4:
+                if st.button("↩️ Re-queue"):
+                    update_ai_job(selected_job_id, {"status": "Queued"})
+                    st.success("Job moved back to Queued")
+                    st.rerun()
+
+            manual_output = st.text_area("Edit output", value=selected_row.get("output", ""), height=180, key=f"out_{selected_job_id}")
+            if st.button("💾 Save output"):
+                update_ai_job(selected_job_id, {"output": manual_output})
+                st.success("Output saved")
+                st.rerun()
+
     with st.expander("➕ Queue AI job"):
         j_type = st.selectbox("Type", ["assistant", "graphic", "video", "copy", "programmer"])
         j_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="jcompany")
@@ -302,10 +405,11 @@ with tab_ai:
         recommended = suggest_agent(j_req, j_type, routing_cfg)
         st.caption(f"Suggested agent: **{recommended}**")
 
+        selectable_agents = agent_names if agent_names else ["Mr Engineering", "Mr Design", "Mr Marketing"]
         selected_agent = st.selectbox(
             "Assigned agent",
-            agent_names if agent_names else ["Mr Engineering", "Mr Design", "Mr Marketing"],
-            index=(agent_names.index(recommended) if agent_names and recommended in agent_names else 0),
+            selectable_agents,
+            index=(selectable_agents.index(recommended) if recommended in selectable_agents else 0),
             disabled=auto_route,
         )
 
