@@ -213,6 +213,7 @@ def add_ai_job(data: dict):
             """,
             (job_id, "created", f"assigned={data.get('assigned_agent', 'Mr Brain')}", ts),
         )
+        return job_id
 
 
 def update_ai_job(job_id: int, fields: dict):

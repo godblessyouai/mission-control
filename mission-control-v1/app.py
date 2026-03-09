@@ -224,7 +224,7 @@ with st.form("quick_command_form", clear_on_submit=True):
                 best_score = score
                 best_agent = agent.get("name", best_agent)
 
-        add_ai_job(
+        job_id = add_ai_job(
             {
                 "job_type": "assistant",
                 "company": "Shared/Personal",
@@ -238,7 +238,9 @@ with st.form("quick_command_form", clear_on_submit=True):
                 "route_reason": f"quick command → {best_agent}",
             }
         )
-        st.success(f"✅ Routed to **{best_agent}** → Check AI Workers tab")
+        if job_id:
+            update_ai_job(job_id, {"status": "In Progress", "route_reason": f"quick command auto-triggered → {best_agent}"})
+        st.success(f"✅ Auto-triggered **{best_agent}** (started immediately)")
 
 st.divider()
 
