@@ -105,10 +105,30 @@ st.markdown("""
     overflow: hidden;
 }
 
-/* Hide Streamlit branding */
+/* Hide Streamlit branding but keep sidebar toggle */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;}
+
+/* Keep sidebar toggle button visible and clickable */
+[data-testid="stSidebar"] button[kind="header"] {
+    color: white !important;
+    opacity: 1 !important;
+}
+[data-testid="collapsedControl"] {
+    color: #333 !important;
+    opacity: 1 !important;
+    z-index: 999 !important;
+}
+button[data-testid="baseButton-headerNoPadding"] {
+    color: white !important;
+    opacity: 1 !important;
+}
+/* Sidebar collapse/expand arrow */
+[data-testid="stSidebar"] [data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
