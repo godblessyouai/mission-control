@@ -13,7 +13,7 @@ quick_seed()
 
 # ---------- Agent team ----------
 AGENTS = {
-    "Mr Brain": {"emoji": "🧠", "role": "Orchestrator", "color": "#6C5CE7", "skills": 4},
+    "Mr Brain": {"emoji": "🧠", "role": "Orchestrator + Product", "color": "#6C5CE7", "skills": 7},
     "Mr Engineering": {"emoji": "💻", "role": "Engineering Lead", "color": "#0984E3", "skills": 10},
     "Mr Design": {"emoji": "🎨", "role": "Design Lead", "color": "#E17055", "skills": 9},
     "Mr Marketing": {"emoji": "📢", "role": "Marketing Lead", "color": "#00B894", "skills": 8},
@@ -47,6 +47,72 @@ for col, (name, info) in zip(agent_cols, AGENTS.items()):
             """,
             unsafe_allow_html=True,
         )
+
+st.divider()
+
+# ---------- Quick Command (Sprint 1, Item 3) ----------
+with st.container():
+    qc1, qc2 = st.columns([5, 1])
+    with qc1:
+        quick_cmd = st.text_input(
+            "⚡ Quick Command",
+            placeholder="Type a task or request — Mr Brain will route it to the right agent...",
+            label_visibility="collapsed",
+        )
+    with qc2:
+        quick_send = st.button("🧠 Send", use_container_width=True)
+
+    if quick_send and quick_cmd.strip():
+        from db import add_ai_job as _qc_add
+
+        _cfg = None
+        try:
+            cfg_path = Path(__file__).parent / "agent-routing.json"
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                _cfg = json.load(f)
+        except Exception:
+            _cfg = {
+                "orchestrator": "Mr Brain",
+                "agents": [
+                    {"name": "Mr Engineering", "triggers": ["build", "api", "bug", "devops", "security"]},
+                    {"name": "Mr Design", "triggers": ["ui", "ux", "brand", "creative"]},
+                    {"name": "Mr Marketing", "triggers": ["campaign", "growth", "social", "content", "ads"]},
+                ],
+                "routingPolicy": {"default": "Mr Marketing"},
+            }
+
+        # inline route
+        txt = quick_cmd.lower()
+        best_agent = _cfg.get("routingPolicy", {}).get("default", "Mr Marketing")
+        best_score = -1
+        for agent in _cfg.get("agents", []):
+            score = sum(1 for t in agent.get("triggers", []) if t.lower() in txt)
+            if agent.get("name") == "Mr Engineering" and any(w in txt for w in ["build", "code", "fix", "deploy"]):
+                score += 1
+            if agent.get("name") == "Mr Design" and any(w in txt for w in ["design", "ui", "brand", "logo"]):
+                score += 1
+            if agent.get("name") == "Mr Marketing" and any(w in txt for w in ["post", "campaign", "ad", "content"]):
+                score += 1
+            if score > best_score:
+                best_score = score
+                best_agent = agent.get("name", best_agent)
+
+        _qc_add(
+            {
+                "job_type": "assistant",
+                "company": "Shared/Personal",
+                "request": quick_cmd.strip(),
+                "owner": "Boss Kai",
+                "priority": "Medium",
+                "status": "Queued",
+                "output": "",
+                "assigned_agent": best_agent,
+                "reviewer_agent": "",
+                "route_reason": f"quick command → {best_agent}",
+            }
+        )
+        st.success(f"Routed to **{best_agent}** → Check AI Workers tab")
+        st.rerun()
 
 st.divider()
 
@@ -205,10 +271,100 @@ kpi = fetch_df(
 )
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Open tasks", int(kpi.iloc[0]["open_tasks"] or 0))
-c2.metric("Escalations", int(kpi.iloc[0]["escalations"] or 0))
-c3.metric("Overdue", int(kpi.iloc[0]["overdue"] or 0))
-c4.metric("Due today", int(kpi.iloc[0]["due_today"] or 0))
+open_tasks_val = int(kpi.iloc[0]["open_tasks"] or 0)
+escalations_val = int(kpi.iloc[0]["escalations"] or 0)
+overdue_val = int(kpi.iloc[0]["overdue"] or 0)
+due_today_val = int(kpi.iloc[0]["due_today"] or 0)
+c1.metric("Open tasks", open_tasks_val)
+c2.metric("Escalations", escalations_val)
+c3.metric("Overdue", overdue_val)
+c4.metric("Due today", due_today_val)
+
+# ---------- Smart Alerts (Sprint 1, Item 2) ----------
+alerts = []
+if overdue_val > 0:
+    alerts.append(f"🔴 **{overdue_val} overdue task(s)** — need attention now")
+if escalations_val > 0:
+    alerts.append(f"🟠 **{escalations_val} escalation(s)** — waiting for your decision")
+if due_today_val > 0:
+    alerts.append(f"🟡 **{due_today_val} task(s) due today** — check before EOD")
+
+# Check for stale in-progress jobs
+stale_jobs = fetch_df(
+    """
+    SELECT COUNT(*) as cnt FROM ai_jobs
+    WHERE status = 'In Progress'
+    AND datetime(updated_at) < datetime('now', '-24 hours')
+    """
+)
+stale_count = int(stale_jobs.iloc[0]["cnt"] or 0)
+if stale_count > 0:
+    alerts.append(f"⚪ **{stale_count} AI job(s)** stuck In Progress for 24h+")
+
+# Agent utilization
+agent_util = fetch_df(
+    """
+    SELECT assigned_agent, COUNT(*) as cnt
+    FROM ai_jobs
+    WHERE status IN ('Queued', 'In Progress')
+    GROUP BY assigned_agent
+    ORDER BY cnt DESC
+    """
+)
+if not agent_util.empty:
+    busiest = agent_util.iloc[0]
+    if int(busiest["cnt"]) >= 5:
+        alerts.append(f"📊 **{busiest['assigned_agent']}** has {int(busiest['cnt'])} active jobs — consider rebalancing")
+
+if alerts:
+    with st.expander(f"🔔 Smart Alerts ({len(alerts)})", expanded=True):
+        for a in alerts:
+            st.markdown(a)
+else:
+    st.caption("🔔 No alerts — all clear")
+
+# ---------- KPI Pulse (Sprint 1, Item 4) ----------
+with st.expander("📈 KPI Pulse — Executive Snapshot"):
+    pulse_jobs = fetch_df(
+        """
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'Queued' THEN 1 ELSE 0 END) as queued,
+          SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
+        FROM ai_jobs
+        """
+    )
+    pj = pulse_jobs.iloc[0]
+    p1, p2, p3, p4 = st.columns(4)
+    p1.metric("Total AI jobs", int(pj["total"] or 0))
+    p2.metric("Queued", int(pj["queued"] or 0))
+    p3.metric("In Progress", int(pj["in_progress"] or 0))
+    p4.metric("Completed", int(pj["done"] or 0))
+
+    # Agent workload distribution
+    agent_dist = fetch_df(
+        """
+        SELECT assigned_agent, status, COUNT(*) as cnt
+        FROM ai_jobs
+        GROUP BY assigned_agent, status
+        ORDER BY assigned_agent
+        """
+    )
+    if not agent_dist.empty:
+        st.caption("Agent workload distribution")
+        pivot = agent_dist.pivot_table(index="assigned_agent", columns="status", values="cnt", fill_value=0, aggfunc="sum")
+        st.dataframe(pivot, use_container_width=True)
+
+    # Today's summary
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    st.markdown(f"""
+**Daily Pulse ({today_str})**
+- 📋 {open_tasks_val} open tasks · {overdue_val} overdue · {due_today_val} due today
+- 🚨 {escalations_val} escalations pending decision
+- 🤖 {int(pj['in_progress'] or 0)} AI jobs running · {int(pj['queued'] or 0)} queued
+- {'⚠️ Attention needed' if overdue_val > 0 or escalations_val > 0 else '✅ On track'}
+    """)
 
 focus = fetch_df(
     f"""
