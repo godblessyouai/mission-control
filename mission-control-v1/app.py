@@ -7,12 +7,48 @@ import pandas as pd
 
 from db import init_db, quick_seed, fetch_df, add_task, update_task, add_comm, add_ai_job, update_ai_job
 
-st.set_page_config(page_title="Mission Control", layout="wide")
+st.set_page_config(page_title="Mission Control", layout="wide", page_icon="🧭")
 init_db()
 quick_seed()
 
+# ---------- Agent team ----------
+AGENTS = {
+    "Mr Brain": {"emoji": "🧠", "role": "Orchestrator", "color": "#6C5CE7", "skills": 4},
+    "Mr Engineering": {"emoji": "💻", "role": "Engineering Lead", "color": "#0984E3", "skills": 10},
+    "Mr Design": {"emoji": "🎨", "role": "Design Lead", "color": "#E17055", "skills": 9},
+    "Mr Marketing": {"emoji": "📢", "role": "Marketing Lead", "color": "#00B894", "skills": 8},
+}
+
 st.title("🧭 Mission Control — Executive Assistant")
-st.caption("Multi-company command center (v1 fast ship)")
+st.caption("Multi-company command center · Powered by Mr Brain + 3 specialist agents")
+
+# ---------- Agent avatar row ----------
+agent_cols = st.columns(4)
+for col, (name, info) in zip(agent_cols, AGENTS.items()):
+    with col:
+        active_count = 0
+        try:
+            active_df = fetch_df(
+                "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status IN ('Queued','In Progress')",
+                [name],
+            )
+            active_count = int(active_df.iloc[0]["cnt"] or 0)
+        except Exception:
+            pass
+        status_dot = "🟢" if active_count > 0 else "⚪"
+        st.markdown(
+            f"""
+            <div style="text-align:center; padding:12px; border-radius:12px; background:{info['color']}15; border:2px solid {info['color']}40;">
+                <div style="font-size:48px;">{info['emoji']}</div>
+                <div style="font-weight:700; font-size:16px; margin-top:4px;">{name}</div>
+                <div style="font-size:12px; color:#888;">{info['role']}</div>
+                <div style="font-size:12px; margin-top:4px;">{status_dot} {active_count} active · {info['skills']} skills</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.divider()
 
 
 def load_agent_routing():
@@ -194,9 +230,49 @@ with st.expander("🎯 Today focus (Top 5)", expanded=True):
         st.dataframe(focus, use_container_width=True, hide_index=True)
 
 # ---------- Tabs ----------
-tab_tasks, tab_escalations, tab_comms, tab_ai, tab_auto = st.tabs(
-    ["Tasks", "Escalations", "Communications", "AI Workers", "Automation"]
+tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_auto = st.tabs(
+    ["🤖 Team", "Tasks", "Escalations", "Communications", "AI Workers", "Automation"]
 )
+
+with tab_team:
+    st.subheader("Agent Team Overview")
+
+    for name, info in AGENTS.items():
+        with st.expander(f"{info['emoji']} {name} — {info['role']}", expanded=(name == "Mr Brain")):
+            team_jobs = fetch_df(
+                """
+                SELECT status, COUNT(*) as cnt
+                FROM ai_jobs
+                WHERE assigned_agent = ?
+                GROUP BY status
+                """,
+                [name],
+            )
+            if team_jobs.empty:
+                st.caption("No jobs assigned yet.")
+            else:
+                m1, m2, m3 = st.columns(3)
+                queued = int(team_jobs[team_jobs["status"] == "Queued"]["cnt"].sum()) if "Queued" in team_jobs["status"].values else 0
+                in_prog = int(team_jobs[team_jobs["status"] == "In Progress"]["cnt"].sum()) if "In Progress" in team_jobs["status"].values else 0
+                done = int(team_jobs[team_jobs["status"] == "Done"]["cnt"].sum()) if "Done" in team_jobs["status"].values else 0
+                m1.metric("Queued", queued)
+                m2.metric("In Progress", in_prog)
+                m3.metric("Done", done)
+
+            recent = fetch_df(
+                """
+                SELECT id, request, status, updated_at
+                FROM ai_jobs
+                WHERE assigned_agent = ?
+                ORDER BY updated_at DESC
+                LIMIT 5
+                """,
+                [name],
+            )
+            if not recent.empty:
+                st.caption("Recent jobs")
+                st.dataframe(recent, use_container_width=True, hide_index=True)
+
 
 with tab_tasks:
     st.subheader("Task + Follow-up Control")
