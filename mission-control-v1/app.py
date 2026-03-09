@@ -392,7 +392,7 @@ with tab_ai:
             if selected_row.get("route_reason"):
                 st.caption(f"Routing note: {selected_row.get('route_reason')}")
 
-            b1, b2, b3, b4 = st.columns(4)
+            b1, b2, b3, b4, b5 = st.columns(5)
             with b1:
                 if st.button("▶️ Run now"):
                     update_ai_job(selected_job_id, {"status": "In Progress"})
@@ -414,12 +414,55 @@ with tab_ai:
                     update_ai_job(selected_job_id, {"status": "Queued"})
                     st.success("Job moved back to Queued")
                     st.rerun()
+            with b5:
+                if st.button("📄 Clone job"):
+                    add_ai_job(
+                        {
+                            "job_type": selected_row.get("job_type", "assistant"),
+                            "company": selected_row.get("company", "Shared/Personal"),
+                            "request": selected_row.get("request", ""),
+                            "owner": selected_row.get("owner", ""),
+                            "priority": selected_row.get("priority", "Medium"),
+                            "status": "Queued",
+                            "output": "",
+                            "assigned_agent": selected_row.get("assigned_agent", "Mr Brain"),
+                            "reviewer_agent": selected_row.get("reviewer_agent", ""),
+                            "route_reason": f"cloned from #{selected_job_id}",
+                        }
+                    )
+                    st.success("Cloned as a new queued job")
+                    st.rerun()
 
             manual_output = st.text_area("Edit output", value=selected_row.get("output", ""), height=180, key=f"out_{selected_job_id}")
             if st.button("💾 Save output"):
                 update_ai_job(selected_job_id, {"output": manual_output})
                 st.success("Output saved")
                 st.rerun()
+
+            events = fetch_df(
+                """
+                SELECT created_at, event_type, details
+                FROM ai_job_events
+                WHERE job_id = ?
+                ORDER BY id DESC
+                LIMIT 30
+                """,
+                [selected_job_id],
+            )
+            st.caption("Execution history")
+            st.dataframe(events, use_container_width=True, hide_index=True)
+
+    with st.expander("📚 Completed jobs (latest 20)"):
+        completed = fetch_df(
+            """
+            SELECT id, assigned_agent, reviewer_agent, company, owner, priority, updated_at, request, output
+            FROM ai_jobs
+            WHERE status = 'Done'
+            ORDER BY updated_at DESC
+            LIMIT 20
+            """
+        )
+        st.dataframe(completed, use_container_width=True, hide_index=True)
 
     with st.expander("➕ Queue AI job"):
         j_type = st.selectbox("Type", ["assistant", "graphic", "video", "copy", "programmer"])

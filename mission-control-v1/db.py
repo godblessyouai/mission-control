@@ -63,6 +63,14 @@ def init_db():
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS ai_job_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                details TEXT,
+                created_at TEXT NOT NULL
+            );
             """
         )
 
@@ -118,10 +126,21 @@ def add_comm(data: dict):
         )
 
 
+def log_ai_event(job_id: int, event_type: str, details: str = ""):
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO ai_job_events(job_id, event_type, details, created_at)
+            VALUES(?,?,?,?)
+            """,
+            (job_id, event_type, details, now_iso()),
+        )
+
+
 def add_ai_job(data: dict):
     ts = now_iso()
     with get_conn() as conn:
-        conn.execute(
+        cur = conn.execute(
             """
             INSERT INTO ai_jobs(job_type, company, request, owner, priority, status, output, assigned_agent, reviewer_agent, route_reason, created_at, updated_at)
             VALUES(:job_type,:company,:request,:owner,:priority,:status,:output,:assigned_agent,:reviewer_agent,:route_reason,:created_at,:updated_at)
@@ -135,6 +154,14 @@ def add_ai_job(data: dict):
                 "updated_at": ts,
             },
         )
+        job_id = cur.lastrowid
+        conn.execute(
+            """
+            INSERT INTO ai_job_events(job_id, event_type, details, created_at)
+            VALUES(?,?,?,?)
+            """,
+            (job_id, "created", f"assigned={data.get('assigned_agent', 'Mr Brain')}", ts),
+        )
 
 
 def update_ai_job(job_id: int, fields: dict):
@@ -142,6 +169,14 @@ def update_ai_job(job_id: int, fields: dict):
     cols = ", ".join([f"{k}=:{k}" for k in fields.keys() if k != "id"])
     with get_conn() as conn:
         conn.execute(f"UPDATE ai_jobs SET {cols} WHERE id=:id", fields)
+        details = "; ".join([f"{k}={v}" for k, v in fields.items() if k not in {"id", "updated_at"}])
+        conn.execute(
+            """
+            INSERT INTO ai_job_events(job_id, event_type, details, created_at)
+            VALUES(?,?,?,?)
+            """,
+            (job_id, "updated", details, fields["updated_at"]),
+        )
 
 
 def fetch_df(query: str, params=()):
