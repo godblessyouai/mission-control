@@ -14,6 +14,104 @@ st.set_page_config(page_title="Mission Control", layout="wide", page_icon="🧭"
 init_db()
 quick_seed()
 
+# ---------- Custom CSS for WOW factor ----------
+st.markdown("""
+<style>
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color: white;
+}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] span {
+    color: #e0e0e0 !important;
+}
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.1);
+}
+[data-testid="stSidebar"] .stSelectbox > div > div,
+[data-testid="stSidebar"] .stMultiSelect > div > div,
+[data-testid="stSidebar"] .stTextInput > div > div > input {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    color: white !important;
+}
+[data-testid="stSidebar"] .stCheckbox label span {
+    color: #e0e0e0 !important;
+}
+
+/* Agent cards hover effect */
+.agent-card {
+    text-align: center;
+    padding: 16px 12px;
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    cursor: default;
+    backdrop-filter: blur(10px);
+}
+.agent-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* KPI metrics glow */
+[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 12px !important;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Tab styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background: rgba(0,0,0,0.02);
+    border-radius: 12px;
+    padding: 4px;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+/* Alert cards */
+.alert-card {
+    padding: 10px 16px;
+    border-radius: 10px;
+    margin: 4px 0;
+    background: rgba(255,255,255,0.5);
+    border-left: 4px solid;
+}
+
+/* Quick command bar */
+.quick-cmd {
+    background: linear-gradient(90deg, #6C5CE7 0%, #a29bfe 100%);
+    border-radius: 16px;
+    padding: 2px;
+}
+
+/* Expander styling */
+.streamlit-expanderHeader {
+    font-weight: 600 !important;
+    font-size: 15px !important;
+}
+
+/* Data tables */
+[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------- Agent team ----------
 AGENTS = {
     "Mr Brain": {"emoji": "🧠", "role": "Orchestrator + Product", "color": "#6C5CE7", "skills": 7},
@@ -22,36 +120,56 @@ AGENTS = {
     "Mr Marketing": {"emoji": "📢", "role": "Marketing Lead", "color": "#00B894", "skills": 8},
 }
 
-st.title("🧭 Mission Control — Executive Assistant")
-st.caption("Multi-company command center · Powered by Mr Brain + 3 specialist agents")
+st.markdown("""
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+    <span style="font-size:42px;">🧭</span>
+    <div>
+        <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mission Control</h1>
+        <p style="margin:0; color:#888; font-size:14px;">Multi-company command center · Powered by Mr Brain + 3 specialist agents</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------- Agent avatar row ----------
 agent_cols = st.columns(4)
 for col, (name, info) in zip(agent_cols, AGENTS.items()):
     with col:
         active_count = 0
+        done_count = 0
         try:
             active_df = fetch_df(
                 "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status IN ('Queued','In Progress')",
                 [name],
             )
             active_count = int(active_df.iloc[0]["cnt"] or 0)
+            done_df = fetch_df(
+                "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status = 'Done'",
+                [name],
+            )
+            done_count = int(done_df.iloc[0]["cnt"] or 0)
         except Exception:
             pass
         status_dot = "🟢" if active_count > 0 else "⚪"
+        glow = f"box-shadow: 0 0 20px {info['color']}40;" if active_count > 0 else ""
         st.markdown(
             f"""
-            <div style="text-align:center; padding:12px; border-radius:12px; background:{info['color']}15; border:2px solid {info['color']}40;">
-                <div style="font-size:48px;">{info['emoji']}</div>
-                <div style="font-weight:700; font-size:16px; margin-top:4px;">{name}</div>
-                <div style="font-size:12px; color:#888;">{info['role']}</div>
-                <div style="font-size:12px; margin-top:4px;">{status_dot} {active_count} active · {info['skills']} skills</div>
+            <div class="agent-card" style="background: linear-gradient(135deg, {info['color']}08, {info['color']}18); border: 2px solid {info['color']}30; {glow}">
+                <div style="font-size:52px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">{info['emoji']}</div>
+                <div style="font-weight:800; font-size:15px; margin-top:6px; color:#2d3436;">{name}</div>
+                <div style="font-size:11px; color:{info['color']}; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">{info['role']}</div>
+                <div style="display:flex; justify-content:center; gap:8px; margin-top:8px; font-size:11px; color:#636e72;">
+                    <span>{status_dot} {active_count} active</span>
+                    <span>·</span>
+                    <span>✅ {done_count} done</span>
+                    <span>·</span>
+                    <span>🔧 {info['skills']} skills</span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-st.divider()
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ---------- Quick Command (Sprint 1, Item 3) ----------
 with st.container():
@@ -221,7 +339,42 @@ def build_agent_output(job: dict) -> str:
 routing_cfg = load_agent_routing()
 agent_names = [a.get("name") for a in routing_cfg.get("agents", []) if a.get("name")]
 
-# ---------- Sidebar filters ----------
+# ---------- Sidebar ----------
+with st.sidebar:
+    st.markdown("""
+    <div style="text-align:center; padding:16px 0 8px;">
+        <div style="font-size:36px;">🧭</div>
+        <div style="font-weight:800; font-size:18px; color:white; margin-top:4px;">Mission Control</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">v2.0 · Mr Brain</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Quick stats in sidebar
+    sidebar_stats = fetch_df("""
+        SELECT
+          SUM(CASE WHEN status != 'Done' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
+        FROM tasks
+    """)
+    ss = sidebar_stats.iloc[0]
+    st.markdown(f"""
+    <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:12px;">
+        <div>
+            <div style="font-size:24px; font-weight:800; color:#6C5CE7;">{int(ss['active'] or 0)}</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase;">Active</div>
+        </div>
+        <div>
+            <div style="font-size:24px; font-weight:800; color:#00B894;">{int(ss['done'] or 0)}</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase;">Done</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("<p style='font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;'>🔍 Filters</p>", unsafe_allow_html=True)
+
 companies = ["All"] + fetch_df("SELECT name FROM companies ORDER BY name")["name"].tolist()
 company_f = st.sidebar.selectbox("Company", companies)
 owner_f = st.sidebar.text_input("Owner contains")
@@ -237,6 +390,14 @@ status_f = st.sidebar.multiselect(
     default=["Open", "In Progress", "Blocked", "Done", "Snoozed"],
 )
 hide_done = st.sidebar.checkbox("Hide done tasks", value=True)
+
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("<p style='font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;'>🤖 Agents online</p>", unsafe_allow_html=True)
+    for name, info in AGENTS.items():
+        st.markdown(f"<div style='font-size:13px; padding:2px 0;'>{info['emoji']} {name}</div>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown(f"<div style='font-size:10px; color:rgba(255,255,255,0.3); text-align:center;'>🕐 {datetime.now().strftime('%H:%M · %b %d, %Y')}</div>", unsafe_allow_html=True)
 
 where = ["1=1"]
 params = []
