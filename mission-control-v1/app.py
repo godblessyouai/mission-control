@@ -360,7 +360,60 @@ with tab_ai:
         ORDER BY id DESC
         """
     )
-    st.dataframe(jobs, use_container_width=True, hide_index=True)
+
+    view_agents = ["All"] + sorted([a for a in jobs["assigned_agent"].dropna().unique().tolist() if a]) if not jobs.empty else ["All"]
+    view_statuses = ["All", "Queued", "In Progress", "Done", "Blocked"]
+    vf1, vf2 = st.columns(2)
+    with vf1:
+        agent_view = st.selectbox("Filter by assigned agent", view_agents, key="ai_filter_agent")
+    with vf2:
+        status_view = st.selectbox("Filter by status", view_statuses, key="ai_filter_status")
+
+    filtered_jobs = jobs.copy()
+    if agent_view != "All":
+        filtered_jobs = filtered_jobs[filtered_jobs["assigned_agent"] == agent_view]
+    if status_view != "All":
+        filtered_jobs = filtered_jobs[filtered_jobs["status"] == status_view]
+
+    st.dataframe(filtered_jobs, use_container_width=True, hide_index=True)
+
+    with st.expander("🧩 Batch actions"):
+        batch_source = filtered_jobs if not filtered_jobs.empty else jobs
+        if batch_source.empty:
+            st.info("No jobs available for batch actions.")
+        else:
+            batch_map = {
+                f"#{row['id']} — {row['assigned_agent'] or 'Mr Brain'} [{row['status']}] {str(row['request'])[:70]}": int(row["id"])
+                for _, row in batch_source.head(200).iterrows()
+            }
+            picked_labels = st.multiselect("Pick jobs", list(batch_map.keys()), key="batch_pick_jobs")
+            picked_ids = [batch_map[x] for x in picked_labels]
+            if picked_ids:
+                b1, b2, b3, b4 = st.columns(4)
+                with b1:
+                    if st.button("Set In Progress", key="batch_inprogress"):
+                        for jid in picked_ids:
+                            update_ai_job(jid, {"status": "In Progress"})
+                        st.success(f"Updated {len(picked_ids)} jobs")
+                        st.rerun()
+                with b2:
+                    if st.button("Mark Done", key="batch_done"):
+                        for jid in picked_ids:
+                            update_ai_job(jid, {"status": "Done"})
+                        st.success(f"Updated {len(picked_ids)} jobs")
+                        st.rerun()
+                with b3:
+                    if st.button("Re-queue", key="batch_queue"):
+                        for jid in picked_ids:
+                            update_ai_job(jid, {"status": "Queued"})
+                        st.success(f"Updated {len(picked_ids)} jobs")
+                        st.rerun()
+                with b4:
+                    if st.button("Escalate to Mr Brain", key="batch_escalate"):
+                        for jid in picked_ids:
+                            update_ai_job(jid, {"assigned_agent": "Mr Brain", "priority": "Critical", "status": "In Progress", "route_reason": "escalated manually"})
+                        st.success(f"Escalated {len(picked_ids)} jobs to Mr Brain")
+                        st.rerun()
 
     with st.expander("⚙️ Run / Update AI job", expanded=True):
         active_jobs = fetch_df(
@@ -391,6 +444,28 @@ with tab_ai:
 
             if selected_row.get("route_reason"):
                 st.caption(f"Routing note: {selected_row.get('route_reason')}")
+
+            r1, r2, r3, r4 = st.columns(4)
+            with r1:
+                if st.button("Assign Mr Engineering", key=f"assign_eng_{selected_job_id}"):
+                    update_ai_job(selected_job_id, {"assigned_agent": "Mr Engineering", "route_reason": "manual reassignment"})
+                    st.success("Assigned to Mr Engineering")
+                    st.rerun()
+            with r2:
+                if st.button("Assign Mr Design", key=f"assign_des_{selected_job_id}"):
+                    update_ai_job(selected_job_id, {"assigned_agent": "Mr Design", "route_reason": "manual reassignment"})
+                    st.success("Assigned to Mr Design")
+                    st.rerun()
+            with r3:
+                if st.button("Assign Mr Marketing", key=f"assign_mkt_{selected_job_id}"):
+                    update_ai_job(selected_job_id, {"assigned_agent": "Mr Marketing", "route_reason": "manual reassignment"})
+                    st.success("Assigned to Mr Marketing")
+                    st.rerun()
+            with r4:
+                if st.button("Escalate to Mr Brain", key=f"assign_brain_{selected_job_id}"):
+                    update_ai_job(selected_job_id, {"assigned_agent": "Mr Brain", "priority": "Critical", "status": "In Progress", "route_reason": "manual escalation"})
+                    st.success("Escalated to Mr Brain")
+                    st.rerun()
 
             b1, b2, b3, b4, b5 = st.columns(5)
             with b1:
