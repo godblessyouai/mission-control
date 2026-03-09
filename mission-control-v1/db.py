@@ -71,8 +71,42 @@ def init_db():
                 details TEXT,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS trend_feed (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company TEXT,
+                category TEXT,
+                title TEXT NOT NULL,
+                summary TEXT,
+                source_url TEXT,
+                sentiment TEXT DEFAULT 'neutral',
+                relevance TEXT DEFAULT 'Medium',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS feedback_inbox (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company TEXT,
+                source TEXT,
+                customer TEXT,
+                message TEXT NOT NULL,
+                sentiment TEXT DEFAULT 'neutral',
+                tags TEXT,
+                status TEXT DEFAULT 'New',
+                notes TEXT,
+                created_at TEXT NOT NULL
+            );
             """
         )
+
+        # task priority score migration
+        task_cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+        if "rice_reach" not in task_cols:
+            conn.execute("ALTER TABLE tasks ADD COLUMN rice_reach INTEGER DEFAULT 0")
+            conn.execute("ALTER TABLE tasks ADD COLUMN rice_impact REAL DEFAULT 1.0")
+            conn.execute("ALTER TABLE tasks ADD COLUMN rice_confidence REAL DEFAULT 0.5")
+            conn.execute("ALTER TABLE tasks ADD COLUMN rice_effort REAL DEFAULT 1.0")
+            conn.execute("ALTER TABLE tasks ADD COLUMN rice_score REAL DEFAULT 0")
 
         for c in ["Mister Mobile", "Food Art", "Shared/Personal"]:
             conn.execute("INSERT OR IGNORE INTO companies(name) VALUES (?)", (c,))
@@ -176,6 +210,49 @@ def update_ai_job(job_id: int, fields: dict):
             VALUES(?,?,?,?)
             """,
             (job_id, "updated", details, fields["updated_at"]),
+        )
+
+
+def add_trend(data: dict):
+    ts = now_iso()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO trend_feed(company, category, title, summary, source_url, sentiment, relevance, created_at)
+            VALUES(:company,:category,:title,:summary,:source_url,:sentiment,:relevance,:created_at)
+            """,
+            {**data, "created_at": ts},
+        )
+
+
+def add_feedback(data: dict):
+    ts = now_iso()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO feedback_inbox(company, source, customer, message, sentiment, tags, status, notes, created_at)
+            VALUES(:company,:source,:customer,:message,:sentiment,:tags,:status,:notes,:created_at)
+            """,
+            {**data, "created_at": ts},
+        )
+
+
+def update_feedback(fb_id: int, fields: dict):
+    fields = {**fields, "id": fb_id}
+    cols = ", ".join([f"{k}=:{k}" for k in fields.keys() if k != "id"])
+    with get_conn() as conn:
+        conn.execute(f"UPDATE feedback_inbox SET {cols} WHERE id=:id", fields)
+
+
+def update_rice_score(task_id: int, reach: int, impact: float, confidence: float, effort: float):
+    score = (reach * impact * confidence) / max(effort, 0.1)
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE tasks SET rice_reach=?, rice_impact=?, rice_confidence=?, rice_effort=?, rice_score=?, updated_at=?
+            WHERE id=?
+            """,
+            (reach, impact, confidence, effort, round(score, 1), now_iso(), task_id),
         )
 
 

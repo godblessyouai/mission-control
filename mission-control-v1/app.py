@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
 
-from db import init_db, quick_seed, fetch_df, add_task, update_task, add_comm, add_ai_job, update_ai_job
+from db import (
+    init_db, quick_seed, fetch_df, add_task, update_task, add_comm,
+    add_ai_job, update_ai_job, add_trend, add_feedback, update_feedback, update_rice_score,
+)
 
 st.set_page_config(page_title="Mission Control", layout="wide", page_icon="🧭")
 init_db()
@@ -386,8 +389,8 @@ with st.expander("🎯 Today focus (Top 5)", expanded=True):
         st.dataframe(focus, use_container_width=True, hide_index=True)
 
 # ---------- Tabs ----------
-tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_auto = st.tabs(
-    ["🤖 Team", "Tasks", "Escalations", "Communications", "AI Workers", "Automation"]
+tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_trends, tab_feedback, tab_auto = st.tabs(
+    ["🤖 Team", "Tasks", "Escalations", "Communications", "AI Workers", "🔍 Trends", "💬 Feedback", "Automation"]
 )
 
 with tab_team:
@@ -528,6 +531,45 @@ with tab_tasks:
                     update_task(task_id, {"due_date": new_due.isoformat()})
                     st.success("Updated")
                     st.rerun()
+
+    with st.expander("🎯 RICE Priority Scoring"):
+        rice_tasks = fetch_df(
+            """
+            SELECT id, title, rice_reach, rice_impact, rice_confidence, rice_effort, rice_score
+            FROM tasks
+            WHERE status != 'Done'
+            ORDER BY rice_score DESC, id DESC
+            LIMIT 50
+            """
+        )
+        if rice_tasks.empty:
+            st.info("No active tasks to score.")
+        else:
+            st.dataframe(rice_tasks, use_container_width=True, hide_index=True)
+
+            rice_map = {
+                f"#{row['id']} — {row['title']} (score: {row['rice_score']})": int(row["id"])
+                for _, row in rice_tasks.iterrows()
+            }
+            rice_label = st.selectbox("Score a task", list(rice_map.keys()), key="rice_pick")
+            rice_id = rice_map[rice_label]
+
+            rc1, rc2, rc3, rc4 = st.columns(4)
+            with rc1:
+                r_reach = st.number_input("Reach (users/month)", min_value=0, value=100, step=10, key="r_reach")
+            with rc2:
+                r_impact = st.selectbox("Impact", [0.25, 0.5, 1.0, 2.0, 3.0], index=2, key="r_impact")
+            with rc3:
+                r_conf = st.selectbox("Confidence %", [0.25, 0.5, 0.8, 1.0], index=1, key="r_conf")
+            with rc4:
+                r_effort = st.number_input("Effort (person-weeks)", min_value=0.1, value=1.0, step=0.5, key="r_effort")
+
+            st.caption(f"RICE Score preview: **{round((r_reach * r_impact * r_conf) / max(r_effort, 0.1), 1)}**")
+
+            if st.button("Save RICE score"):
+                update_rice_score(rice_id, r_reach, r_impact, r_conf, r_effort)
+                st.success("RICE score saved")
+                st.rerun()
 
 with tab_escalations:
     st.subheader("Escalations needing decision")
@@ -812,6 +854,105 @@ with tab_ai:
                     }
                 )
                 st.success("AI job queued")
+                st.rerun()
+
+with tab_trends:
+    st.subheader("🔍 Trend Feed — Market Intelligence")
+    st.caption("Competitor moves, market signals, and opportunities for Mister Mobile + Food Art")
+
+    trends = fetch_df(
+        """
+        SELECT id, company, category, title, summary, source_url, sentiment, relevance, created_at
+        FROM trend_feed
+        ORDER BY id DESC
+        LIMIT 50
+        """
+    )
+    if trends.empty:
+        st.info("No trends captured yet. Add manually or let Mr Brain auto-populate from web research.")
+    else:
+        tf1, tf2 = st.columns(2)
+        with tf1:
+            trend_co = st.selectbox("Filter company", ["All"] + sorted(trends["company"].dropna().unique().tolist()), key="trend_co")
+        with tf2:
+            trend_cat = st.selectbox("Filter category", ["All"] + sorted(trends["category"].dropna().unique().tolist()), key="trend_cat")
+        filtered_trends = trends.copy()
+        if trend_co != "All":
+            filtered_trends = filtered_trends[filtered_trends["company"] == trend_co]
+        if trend_cat != "All":
+            filtered_trends = filtered_trends[filtered_trends["category"] == trend_cat]
+        st.dataframe(filtered_trends, use_container_width=True, hide_index=True)
+
+    with st.expander("➕ Add trend"):
+        tr_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="tr_co")
+        tr_cat = st.selectbox("Category", ["Competitor", "Market", "Technology", "Consumer", "Regulation", "Other"], key="tr_cat")
+        tr_title = st.text_input("Title", key="tr_title")
+        tr_summary = st.text_area("Summary", key="tr_summary")
+        tr_url = st.text_input("Source URL", key="tr_url")
+        tr_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="tr_sent")
+        tr_rel = st.selectbox("Relevance", ["Low", "Medium", "High", "Critical"], index=1, key="tr_rel")
+        if st.button("Save trend"):
+            if tr_title.strip():
+                add_trend({
+                    "company": tr_company,
+                    "category": tr_cat,
+                    "title": tr_title.strip(),
+                    "summary": tr_summary.strip(),
+                    "source_url": tr_url.strip(),
+                    "sentiment": tr_sent,
+                    "relevance": tr_rel,
+                })
+                st.success("Trend added")
+                st.rerun()
+
+with tab_feedback:
+    st.subheader("💬 Feedback Inbox — Customer Signals")
+    st.caption("Centralized feedback from all channels, auto-tagged by sentiment")
+
+    feedbacks = fetch_df(
+        """
+        SELECT id, company, source, customer, message, sentiment, tags, status, notes, created_at
+        FROM feedback_inbox
+        ORDER BY id DESC
+        LIMIT 100
+        """
+    )
+
+    if feedbacks.empty:
+        st.info("No feedback captured yet. Add manually or integrate with customer channels.")
+    else:
+        fb_status_filter = st.selectbox("Filter status", ["All", "New", "Reviewed", "Actioned", "Archived"], key="fb_status")
+        filtered_fb = feedbacks if fb_status_filter == "All" else feedbacks[feedbacks["status"] == fb_status_filter]
+
+        # Sentiment summary
+        sent_counts = feedbacks["sentiment"].value_counts()
+        s1, s2, s3 = st.columns(3)
+        s1.metric("😊 Positive", int(sent_counts.get("positive", 0)))
+        s2.metric("😐 Neutral", int(sent_counts.get("neutral", 0)))
+        s3.metric("😞 Negative", int(sent_counts.get("negative", 0)))
+
+        st.dataframe(filtered_fb, use_container_width=True, hide_index=True)
+
+    with st.expander("➕ Add feedback"):
+        fb_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="fb_co")
+        fb_source = st.selectbox("Source", ["Google Review", "Instagram", "TikTok", "Email", "WhatsApp", "Telegram", "In-Store", "Website", "Other"], key="fb_src")
+        fb_customer = st.text_input("Customer name", key="fb_cust")
+        fb_msg = st.text_area("Feedback message", key="fb_msg")
+        fb_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="fb_sent")
+        fb_tags = st.text_input("Tags (comma-separated)", key="fb_tags")
+        if st.button("Save feedback"):
+            if fb_msg.strip():
+                add_feedback({
+                    "company": fb_company,
+                    "source": fb_source,
+                    "customer": fb_customer.strip(),
+                    "message": fb_msg.strip(),
+                    "sentiment": fb_sent,
+                    "tags": fb_tags.strip(),
+                    "status": "New",
+                    "notes": "",
+                })
+                st.success("Feedback added")
                 st.rerun()
 
 with tab_auto:
