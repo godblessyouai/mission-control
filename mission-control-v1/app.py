@@ -1,6 +1,9 @@
+import json
+from pathlib import Path
+from datetime import datetime, timedelta
+
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 
 from db import init_db, quick_seed, fetch_df, add_task, update_task, add_comm, add_ai_job
 
@@ -10,6 +13,37 @@ quick_seed()
 
 st.title("🧭 Mission Control — Executive Assistant")
 st.caption("Multi-company command center (v1 fast ship)")
+
+
+def load_agent_routing():
+    cfg_path = Path(__file__).parent / "agent-routing.json"
+    if not cfg_path.exists():
+        return {
+            "orchestrator": "Mr Brain",
+            "agents": [
+                {"name": "Mr Engineering", "triggers": ["build", "api", "bug", "devops", "security"]},
+                {"name": "Mr Design", "triggers": ["ui", "ux", "brand", "creative"]},
+                {"name": "Mr Marketing", "triggers": ["campaign", "growth", "social", "content", "ads"]},
+            ],
+        }
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def suggest_agent(request_text: str, job_type: str, cfg: dict) -> str:
+    txt = f"{job_type} {request_text}".lower().strip()
+    best_name = cfg.get("routingPolicy", {}).get("default", cfg.get("orchestrator", "Mr Brain"))
+    best_score = -1
+    for agent in cfg.get("agents", []):
+        score = sum(1 for t in agent.get("triggers", []) if t.lower() in txt)
+        if score > best_score:
+            best_score = score
+            best_name = agent.get("name", best_name)
+    return best_name
+
+
+routing_cfg = load_agent_routing()
+agent_names = [a.get("name") for a in routing_cfg.get("agents", []) if a.get("name")]
 
 # ---------- Sidebar filters ----------
 companies = ["All"] + fetch_df("SELECT name FROM companies ORDER BY name")["name"].tolist()
@@ -246,10 +280,11 @@ with tab_comms:
 
 with tab_ai:
     st.subheader("AI worker modules")
-    st.caption("Assistant / Graphic / Video / Copy / Programmer job queue")
+    st.caption("Mr Brain routes jobs to Mr Engineering / Mr Design / Mr Marketing")
+
     jobs = fetch_df(
         """
-        SELECT id, job_type, company, request, owner, priority, status, output
+        SELECT id, assigned_agent, job_type, company, request, owner, priority, status, output
         FROM ai_jobs
         ORDER BY id DESC
         """
@@ -262,6 +297,18 @@ with tab_ai:
         j_req = st.text_area("Request")
         j_owner = st.text_input("Owner", key="jowner")
         j_priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="jpriority")
+
+        auto_route = st.checkbox("Auto-route with Mr Brain", value=True)
+        recommended = suggest_agent(j_req, j_type, routing_cfg)
+        st.caption(f"Suggested agent: **{recommended}**")
+
+        selected_agent = st.selectbox(
+            "Assigned agent",
+            agent_names if agent_names else ["Mr Engineering", "Mr Design", "Mr Marketing"],
+            index=(agent_names.index(recommended) if agent_names and recommended in agent_names else 0),
+            disabled=auto_route,
+        )
+
         if st.button("Add AI job"):
             if j_req.strip():
                 add_ai_job(
@@ -273,6 +320,7 @@ with tab_ai:
                         "priority": j_priority,
                         "status": "Queued",
                         "output": "",
+                        "assigned_agent": recommended if auto_route else selected_agent,
                     }
                 )
                 st.success("AI job queued")

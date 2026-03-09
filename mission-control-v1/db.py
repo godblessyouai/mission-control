@@ -69,6 +69,11 @@ def init_db():
         for c in ["Mister Mobile", "Food Art", "Shared/Personal"]:
             conn.execute("INSERT OR IGNORE INTO companies(name) VALUES (?)", (c,))
 
+        # lightweight migrations
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(ai_jobs)").fetchall()]
+        if "assigned_agent" not in cols:
+            conn.execute("ALTER TABLE ai_jobs ADD COLUMN assigned_agent TEXT DEFAULT 'Mr Brain'")
+
 
 def now_iso():
     return datetime.now().isoformat(timespec="seconds")
@@ -114,10 +119,10 @@ def add_ai_job(data: dict):
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO ai_jobs(job_type, company, request, owner, priority, status, output, created_at, updated_at)
-            VALUES(:job_type,:company,:request,:owner,:priority,:status,:output,:created_at,:updated_at)
+            INSERT INTO ai_jobs(job_type, company, request, owner, priority, status, output, assigned_agent, created_at, updated_at)
+            VALUES(:job_type,:company,:request,:owner,:priority,:status,:output,:assigned_agent,:created_at,:updated_at)
             """,
-            {**data, "created_at": ts, "updated_at": ts},
+            {**data, "assigned_agent": data.get("assigned_agent", "Mr Brain"), "created_at": ts, "updated_at": ts},
         )
 
 
@@ -173,5 +178,6 @@ def quick_seed():
             "priority": "Medium",
             "status": "Queued",
             "output": "",
+            "assigned_agent": "Mr Marketing",
         }
     )
