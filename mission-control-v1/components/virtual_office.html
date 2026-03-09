@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { 
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.office-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 800px;
+}
+
+.office-floor {
+  position: relative;
+  width: 750px;
+  height: 420px;
+  transform: rotateX(35deg) rotateZ(-25deg);
+  transform-style: preserve-3d;
+}
+
+.floor-tile {
+  position: absolute;
+  width: 750px;
+  height: 420px;
+  background: linear-gradient(135deg, #e8ecf1 0%, #d5dde6 100%);
+  border-radius: 12px;
+  border: 2px solid #c8d0da;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.floor-grid {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  border-radius: 12px;
+}
+
+.desk {
+  position: absolute;
+  width: 155px;
+  height: 90px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.desk:hover {
+  transform: translateZ(8px) scale(1.04);
+  z-index: 10;
+}
+
+.desk-surface {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 50px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.desk-screen {
+  position: absolute;
+  bottom: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 28px;
+  background: #2d3436;
+  border-radius: 3px 3px 0 0;
+  border: 2px solid #636e72;
+}
+
+.desk-screen-glow {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px 2px 0 0;
+}
+
+.agent-avatar {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 36px;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.2));
+  transition: transform 0.3s ease;
+}
+
+.desk:hover .agent-avatar {
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.agent-name {
+  position: absolute;
+  bottom: -18px;
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #2d3436;
+  letter-spacing: 0.3px;
+}
+
+.status-badge {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.task-bubble {
+  position: absolute;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 9px;
+  color: #636e72;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.desk:hover .task-bubble {
+  opacity: 1;
+}
+
+.task-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid white;
+}
+
+/* Status colors */
+.status-working { background: #00B89422; color: #00B894; }
+.status-idle { background: #B2BEC322; color: #B2BEC3; }
+.status-standby { background: #FDCB6E22; color: #FDCB6E; }
+.status-away { background: #D6303122; color: #D63031; }
+
+.screen-working { background: linear-gradient(135deg, #00B894, #00CEC9); }
+.screen-idle { background: linear-gradient(135deg, #636e72, #b2bec3); }
+.screen-standby { background: linear-gradient(135deg, #FDCB6E, #F6E58D); }
+
+/* Pulse for working */
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 5px rgba(0,184,148,0.3); }
+  50% { box-shadow: 0 0 20px rgba(0,184,148,0.6); }
+  100% { box-shadow: 0 0 5px rgba(0,184,148,0.3); }
+}
+.desk-working { animation: pulse-glow 2s infinite; border-radius: 8px; }
+
+/* Typing animation for working */
+@keyframes typing {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.typing-dots span {
+  animation: typing 1.4s infinite;
+  font-size: 14px;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Office decorations */
+.plant {
+  position: absolute;
+  font-size: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+}
+
+.office-label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #636e72;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Info panel */
+.info-panel {
+  position: fixed;
+  top: 0;
+  right: -320px;
+  width: 320px;
+  height: 100%;
+  background: white;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+  transition: right 0.3s ease;
+  z-index: 100;
+  padding: 20px;
+  overflow-y: auto;
+}
+.info-panel.open { right: 0; }
+.info-panel h3 { font-size: 18px; margin-bottom: 4px; }
+.info-panel .role { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.info-panel .section { margin-top: 16px; }
+.info-panel .section h4 { font-size: 12px; color: #636e72; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.info-panel .job-item { padding: 8px; background: #f8f9fa; border-radius: 8px; margin-bottom: 6px; font-size: 12px; }
+.info-panel .close-btn { position: absolute; top: 12px; right: 12px; cursor: pointer; font-size: 18px; color: #b2bec3; }
+.info-panel .close-btn:hover { color: #2d3436; }
+</style>
+</head>
+<body>
+
+<div class="office-container">
+  <div class="office-floor">
+    <div class="floor-tile"></div>
+    <div class="floor-grid"></div>
+    <div class="office-label">🏢 Mr Kai's Office</div>
+
+    <!-- Plants -->
+    <div class="plant" style="top:10px;right:20px;">🌿</div>
+    <div class="plant" style="bottom:15px;left:15px;">🪴</div>
+    <div class="plant" style="top:50%;right:10px;">🌱</div>
+
+    <!-- Mr Brain -->
+    <div class="desk" id="desk-brain" style="top:40px;left:40px;" onclick="showPanel('brain')">
+      <div class="task-bubble" id="bubble-brain">🪑 Nothing active</div>
+      <div class="agent-avatar">🧠</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-brain"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#6C5CE720,#6C5CE740);border:1px solid #6C5CE730;"></div>
+      <div class="status-badge status-idle" id="badge-brain">⚪ IDLE</div>
+      <div class="agent-name">Mr Brain</div>
+    </div>
+
+    <!-- Mr Engineering -->
+    <div class="desk" id="desk-engineering" style="top:40px;left:240px;" onclick="showPanel('engineering')">
+      <div class="task-bubble" id="bubble-engineering">🪑 Nothing active</div>
+      <div class="agent-avatar">💻</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-engineering"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#0984E320,#0984E340);border:1px solid #0984E330;"></div>
+      <div class="status-badge status-idle" id="badge-engineering">⚪ IDLE</div>
+      <div class="agent-name">Mr Engineering</div>
+    </div>
+
+    <!-- Mr Design -->
+    <div class="desk" id="desk-design" style="top:220px;left:40px;" onclick="showPanel('design')">
+      <div class="task-bubble" id="bubble-design">🪑 Nothing active</div>
+      <div class="agent-avatar">🎨</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-design"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#E1705520,#E1705540);border:1px solid #E1705530;"></div>
+      <div class="status-badge status-idle" id="badge-design">⚪ IDLE</div>
+      <div class="agent-name">Mr Design</div>
+    </div>
+
+    <!-- Mr Marketing -->
+    <div class="desk" id="desk-marketing" style="top:220px;left:240px;" onclick="showPanel('marketing')">
+      <div class="task-bubble" id="bubble-marketing">🪑 Nothing active</div>
+      <div class="agent-avatar">📢</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-marketing"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#00B89420,#00B89440);border:1px solid #00B89430;"></div>
+      <div class="status-badge status-idle" id="badge-marketing">⚪ IDLE</div>
+      <div class="agent-name">Mr Marketing</div>
+    </div>
+
+    <!-- Mr Kai's desk (center, bigger) -->
+    <div style="position:absolute;top:130px;left:460px;text-align:center;">
+      <div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">👔</div>
+      <div style="width:120px;height:40px;background:linear-gradient(135deg,#6C5CE730,#0984E330);border-radius:8px;border:2px solid #6C5CE740;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+      <div style="font-size:10px;font-weight:800;color:#6C5CE7;margin-top:4px;letter-spacing:0.5px;">MR KAI</div>
+    </div>
+  </div>
+</div>
+
+<!-- Info panel (slides in on click) -->
+<div class="info-panel" id="info-panel">
+  <div class="close-btn" onclick="closePanel()">✕</div>
+  <div style="font-size:36px;text-align:center;margin-bottom:8px;" id="panel-emoji">🧠</div>
+  <h3 id="panel-name">Mr Brain</h3>
+  <div class="role" id="panel-role">Orchestrator + Product</div>
+  <div id="panel-status" style="margin-top:8px;"></div>
+  <div class="section">
+    <h4>Current Work</h4>
+    <div id="panel-current">No active tasks</div>
+  </div>
+  <div class="section">
+    <h4>Recent Output</h4>
+    <div id="panel-recent">No recent output</div>
+  </div>
+</div>
+
+<script>
+const agents = {
+  brain: { name: 'Mr Brain', emoji: '🧠', role: 'Orchestrator + Product', color: '#6C5CE7' },
+  engineering: { name: 'Mr Engineering', emoji: '💻', role: 'Engineering Lead', color: '#0984E3' },
+  design: { name: 'Mr Design', emoji: '🎨', role: 'Design Lead', color: '#E17055' },
+  marketing: { name: 'Mr Marketing', emoji: '📢', role: 'Marketing Lead', color: '#00B894' },
+};
+
+function showPanel(id) {
+  const a = agents[id];
+  document.getElementById('panel-emoji').textContent = a.emoji;
+  document.getElementById('panel-name').textContent = a.name;
+  document.getElementById('panel-role').textContent = a.role;
+  document.getElementById('panel-role').style.color = a.color;
+  document.getElementById('info-panel').classList.add('open');
+
+  // Send message to Streamlit
+  if (window.parent) {
+    window.parent.postMessage({type: 'agent-click', agent: a.name}, '*');
+  }
+}
+
+function closePanel() {
+  document.getElementById('info-panel').classList.remove('open');
+}
+
+// Update from Streamlit data
+function updateAgent(id, status, task) {
+  const badge = document.getElementById('badge-' + id);
+  const screen = document.getElementById('screen-' + id);
+  const bubble = document.getElementById('bubble-' + id);
+  const desk = document.getElementById('desk-' + id);
+
+  if (status === 'Busy') {
+    badge.className = 'status-badge status-working';
+    badge.innerHTML = '🟢 WORKING';
+    screen.className = 'desk-screen-glow screen-working';
+    desk.classList.add('desk-working');
+    bubble.textContent = '💬 ' + (task || 'Working...');
+  } else if (status === 'Standby') {
+    badge.className = 'status-badge status-standby';
+    badge.innerHTML = '🟡 STANDBY';
+    screen.className = 'desk-screen-glow screen-standby';
+    desk.classList.remove('desk-working');
+    bubble.textContent = '📋 ' + (task || 'Jobs queued');
+  } else {
+    badge.className = 'status-badge status-idle';
+    badge.innerHTML = '⚪ IDLE';
+    screen.className = 'desk-screen-glow screen-idle';
+    desk.classList.remove('desk-working');
+    bubble.textContent = '🪑 Nothing active';
+  }
+}
+
+// Listen for updates from Streamlit
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'update-agents') {
+    const data = e.data.agents;
+    for (const [id, info] of Object.entries(data)) {
+      updateAgent(id, info.status, info.task);
+    }
+  }
+});
+</script>
+
+</body>
+</html>

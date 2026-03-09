@@ -528,77 +528,53 @@ tab_office, tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_trends,
 )
 
 with tab_office:
-    st.subheader("🏢 Virtual Office — Live Floor View")
-    st.caption("See who's at their desk, what they're working on, and their recent output.")
+    import streamlit.components.v1 as components
 
     # Sync all agent statuses
     for aname in AGENTS:
         sync_agent_status(aname)
 
-    STATUS_META = {
-        "Busy":    {"dot": "🟢", "label": "WORKING", "color": "#00B894", "pulse": True},
-        "Standby": {"dot": "🟡", "label": "STANDBY", "color": "#FDCB6E", "pulse": False},
-        "Idle":    {"dot": "⚪", "label": "IDLE",    "color": "#B2BEC3", "pulse": False},
-        "Away":    {"dot": "🔴", "label": "AWAY",    "color": "#D63031", "pulse": False},
-    }
-
     statuses_df = fetch_df("SELECT * FROM agent_status")
     agent_statuses = {row["agent_name"]: dict(row) for _, row in statuses_df.iterrows()} if not statuses_df.empty else {}
 
-    # Build desk cards as one HTML block (avoids column + unsafe_allow_html issues)
-    cards_html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;">'
-    for aname, ainfo in AGENTS.items():
-        s = agent_statuses.get(aname, {})
+    # Read HTML template
+    office_html_path = Path(__file__).parent / "components" / "virtual_office.html"
+    office_html = office_html_path.read_text()
+
+    # Build JS to inject live status data
+    agent_map = {
+        "brain": "Mr Brain",
+        "engineering": "Mr Engineering",
+        "design": "Mr Design",
+        "marketing": "Mr Marketing",
+    }
+    update_js = "<script>document.addEventListener('DOMContentLoaded', function(){ "
+    for key, full_name in agent_map.items():
+        s = agent_statuses.get(full_name, {})
         status = s.get("status", "Idle")
-        curr_task = s.get("current_task", "") or ""
-        started = s.get("started_at", "")
-        sm = STATUS_META.get(status, STATUS_META["Idle"])
+        task = (s.get("current_task", "") or "").replace("'", "\\'")[:80]
+        update_js += f"updateAgent('{key}', '{status}', '{task}'); "
+    update_js += "});</script>"
 
-        elapsed_str = ""
-        if started:
-            try:
-                delta = datetime.now() - datetime.fromisoformat(started)
-                sec = int(delta.total_seconds())
-                if sec < 60: elapsed_str = "just now"
-                elif sec < 3600: elapsed_str = f"{sec // 60}m ago"
-                else: elapsed_str = f"{sec // 3600}h {(sec % 3600) // 60}m ago"
-            except Exception:
-                pass
+    # Inject before </body>
+    office_html = office_html.replace("</body>", update_js + "</body>")
 
-        task_line = f"💬 {curr_task}" if curr_task else "🪑 Nothing active"
-        elapsed_line = f'<div style="font-size:10px;color:#b2bec3;margin-top:6px;">⏱ {elapsed_str}</div>' if elapsed_str else ""
-        shadow = f"box-shadow:0 0 24px {sm['color']}30;" if sm["pulse"] else ""
-        pulse_anim = '<style>@keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}.pulse-dot{animation:pulse 1.5s infinite}</style>' if sm["pulse"] else ""
-        dot_class = "pulse-dot" if sm["pulse"] else ""
+    components.html(office_html, height=520, scrolling=False)
 
-        cards_html += (
-            f'{pulse_anim}'
-            f'<div style="border-radius:20px;border:2px solid {sm["color"]}40;'
-            f'background:linear-gradient(145deg,{ainfo["color"]}08,{ainfo["color"]}18);'
-            f'padding:20px 14px;text-align:center;min-height:220px;{shadow}position:relative;">'
-            f'<div style="position:absolute;top:10px;right:10px;font-size:10px;'
-            f'background:{sm["color"]}22;color:{sm["color"]};'
-            f'padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:1px;">'
-            f'<span class="{dot_class}">{sm["dot"]}</span> {sm["label"]}</div>'
-            f'<div style="font-size:56px;margin-bottom:6px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.15));">{ainfo["emoji"]}</div>'
-            f'<div style="font-weight:800;font-size:15px;color:#2d3436;">{aname}</div>'
-            f'<div style="font-size:10px;color:{ainfo["color"]};font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">{ainfo["role"]}</div>'
-            f'<div style="border-top:1px solid {ainfo["color"]}20;margin:8px 0;"></div>'
-            f'<div style="font-size:12px;color:#636e72;min-height:36px;line-height:1.5;">{task_line}</div>'
-            f'{elapsed_line}'
-            f'</div>'
-        )
-    cards_html += '</div>'
-    st.markdown(cards_html, unsafe_allow_html=True)
+    # Agent detail expanders below
+    STATUS_META = {
+        "Busy":    {"dot": "🟢", "label": "WORKING"},
+        "Standby": {"dot": "🟡", "label": "STANDBY"},
+        "Idle":    {"dot": "⚪", "label": "IDLE"},
+        "Away":    {"dot": "🔴", "label": "AWAY"},
+    }
 
-    # Agent detail expanders (clickable)
     for aname, ainfo in AGENTS.items():
         s = agent_statuses.get(aname, {})
         status = s.get("status", "Idle")
         sm = STATUS_META.get(status, STATUS_META["Idle"])
 
         with st.expander(f"{ainfo['emoji']} {aname} — {sm['dot']} {sm['label']}", expanded=False):
-            # Current jobs
             agent_jobs = fetch_df("""
                 SELECT id, request, status, priority, output, updated_at
                 FROM ai_jobs
@@ -615,7 +591,6 @@ with tab_office:
                 st.caption(f"**Active jobs ({len(agent_jobs)})**")
                 st.dataframe(agent_jobs, use_container_width=True, hide_index=True)
 
-            # Recent completed
             done_jobs = fetch_df("""
                 SELECT id, request, output, updated_at
                 FROM ai_jobs
@@ -630,7 +605,6 @@ with tab_office:
                     with st.expander(f"✅ #{dj['id']} — {str(dj['request'])[:60]}"):
                         st.markdown(str(dj.get("output", "") or "No output saved."))
 
-            # Activity timeline
             events = fetch_df("""
                 SELECT e.event_type, e.details, e.created_at
                 FROM ai_job_events e
