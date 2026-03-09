@@ -49,13 +49,23 @@ cd mission-control-v1
 python3 summary.py
 ```
 
-## Suggested next upgrades (v1.1)
+## Agent setup (v1.2 in progress)
 
-1. Telegram command bridge (`/task`, `/escalate`, `/summary`)
-2. Slack + Gmail ingestion into `comms`
-3. KPI anomaly alerts
-4. Role-based owners/teams
-5. CSV import/export + audit log
+Mr Brain orchestration stack:
+- Mr Engineering → `skills/mr-engineering`
+- Mr Design → `skills/mr-design`
+- Mr Marketing → `skills/mr-marketing`
+
+Routing config:
+- `agent-routing.json`
+
+## Suggested next upgrades (v1.2)
+
+1. Add agent dropdown + auto-routing in `AI Workers` tab
+2. One-click "Run with Mr Engineering/Design/Marketing"
+3. Save structured specialist outputs into `ai_jobs.output`
+4. Telegram command bridge (`/task`, `/escalate`, `/summary`)
+5. KPI anomaly alerts + notification hooks
 
 ## Cron examples
 

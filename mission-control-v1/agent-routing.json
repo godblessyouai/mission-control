@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "orchestrator": "Mr Brain",
+  "agents": [
+    {
+      "name": "Mr Engineering",
+      "skill": "mr-engineering",
+      "triggers": ["build", "code", "api", "bug", "devops", "security", "mobile", "architecture"]
+    },
+    {
+      "name": "Mr Design",
+      "skill": "mr-design",
+      "triggers": ["ui", "ux", "brand", "design", "storyboard", "creative", "prompt image"]
+    },
+    {
+      "name": "Mr Marketing",
+      "skill": "mr-marketing",
+      "triggers": ["campaign", "ads", "growth", "instagram", "tiktok", "social", "xhs", "content"]
+    }
+  ],
+  "routingPolicy": {
+    "default": "Mr Marketing",
+    "multiAgentAllowed": true,
+    "requireOutputTemplate": true
+  }
+}
