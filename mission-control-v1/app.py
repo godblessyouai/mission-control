@@ -172,7 +172,7 @@ for col, (name, info) in zip(agent_cols, AGENTS.items()):
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ---------- Quick Command (Sprint 1, Item 3) ----------
-with st.container():
+with st.form("quick_command_form", clear_on_submit=True):
     qc1, qc2 = st.columns([5, 1])
     with qc1:
         quick_cmd = st.text_input(
@@ -181,11 +181,9 @@ with st.container():
             label_visibility="collapsed",
         )
     with qc2:
-        quick_send = st.button("🧠 Send", use_container_width=True)
+        quick_send = st.form_submit_button("🧠 Send", use_container_width=True)
 
     if quick_send and quick_cmd.strip():
-        from db import add_ai_job as _qc_add
-
         _cfg = None
         try:
             cfg_path = Path(__file__).parent / "agent-routing.json"
@@ -218,7 +216,7 @@ with st.container():
                 best_score = score
                 best_agent = agent.get("name", best_agent)
 
-        _qc_add(
+        add_ai_job(
             {
                 "job_type": "assistant",
                 "company": "Shared/Personal",
@@ -232,8 +230,7 @@ with st.container():
                 "route_reason": f"quick command → {best_agent}",
             }
         )
-        st.success(f"Routed to **{best_agent}** → Check AI Workers tab")
-        st.rerun()
+        st.success(f"✅ Routed to **{best_agent}** → Check AI Workers tab")
 
 st.divider()
 
