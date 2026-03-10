@@ -347,43 +347,49 @@ for row_start in range(0, len(agent_items), 4):
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-# ---------- Quick Command ----------
-with st.form("quick_command_form", clear_on_submit=True):
-    qc1, qc2 = st.columns([5, 1])
-    with qc1:
-        quick_cmd = st.text_input(
-            "⚡ Quick Command",
-            placeholder="Type a task — Mr Brain routes it to the right agent automatically...",
-            label_visibility="collapsed",
-        )
-    with qc2:
-        quick_send = st.form_submit_button("🧠 Send", use_container_width=True)
+# ---------- Read-only mode for cloud deployment ----------
+import os
+# Auto-detect Streamlit Cloud (sets STREAMLIT_SHARING_MODE) or use READONLY env var
+READONLY = os.environ.get("READONLY", "0") == "1" or "STREAMLIT_SHARING_MODE" in os.environ or os.environ.get("HOSTNAME", "").endswith("streamlit.app")
 
-    if quick_send and quick_cmd.strip():
-        txt = quick_cmd.lower()
-        best_agent = routing_cfg.get("routingPolicy", {}).get("default", "Mr Marketing")
-        best_score = -1
-        for agent in routing_cfg.get("agents", []):
-            score = sum(1 for t in agent.get("triggers", []) if t.lower() in txt)
-            if score > best_score:
-                best_score = score
-                best_agent = agent.get("name", best_agent)
+# ---------- Quick Command (hidden in read-only mode) ----------
+if not READONLY:
+    with st.form("quick_command_form", clear_on_submit=True):
+        qc1, qc2 = st.columns([5, 1])
+        with qc1:
+            quick_cmd = st.text_input(
+                "⚡ Quick Command",
+                placeholder="Type a task — Mr Brain routes it to the right agent automatically...",
+                label_visibility="collapsed",
+            )
+        with qc2:
+            quick_send = st.form_submit_button("🧠 Send", use_container_width=True)
 
-        job_id = add_ai_job({
-            "job_type": "assistant",
-            "company": "Shared/Personal",
-            "request": quick_cmd.strip(),
-            "owner": "Mr Kai",
-            "priority": "Medium",
-            "status": "Queued",
-            "output": "",
-            "assigned_agent": best_agent,
-            "reviewer_agent": "",
-            "route_reason": f"quick command → {best_agent}",
-        })
-        if job_id:
-            update_ai_job(job_id, {"status": "In Progress", "route_reason": f"auto-triggered → {best_agent}"})
-        st.success(f"✅ Auto-triggered **{best_agent}** — Job #{job_id}")
+        if quick_send and quick_cmd.strip():
+            txt = quick_cmd.lower()
+            best_agent = routing_cfg.get("routingPolicy", {}).get("default", "Mr Marketing")
+            best_score = -1
+            for agent in routing_cfg.get("agents", []):
+                score = sum(1 for t in agent.get("triggers", []) if t.lower() in txt)
+                if score > best_score:
+                    best_score = score
+                    best_agent = agent.get("name", best_agent)
+
+            job_id = add_ai_job({
+                "job_type": "assistant",
+                "company": "Shared/Personal",
+                "request": quick_cmd.strip(),
+                "owner": "Mr Kai",
+                "priority": "Medium",
+                "status": "Queued",
+                "output": "",
+                "assigned_agent": best_agent,
+                "reviewer_agent": "",
+                "route_reason": f"quick command → {best_agent}",
+            })
+            if job_id:
+                update_ai_job(job_id, {"status": "In Progress", "route_reason": f"auto-triggered → {best_agent}"})
+            st.success(f"✅ Auto-triggered **{best_agent}** — Job #{job_id}")
 
 st.divider()
 
