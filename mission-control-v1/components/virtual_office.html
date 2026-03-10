@@ -20,16 +20,16 @@ body {
 
 .office-floor {
   position: relative;
-  width: 750px;
-  height: 420px;
+  width: 860px;
+  height: 520px;
   transform: rotateX(35deg) rotateZ(-25deg);
   transform-style: preserve-3d;
 }
 
 .floor-tile {
   position: absolute;
-  width: 750px;
-  height: 420px;
+  width: 860px;
+  height: 520px;
   background: linear-gradient(135deg, #e8ecf1 0%, #d5dde6 100%);
   border-radius: 12px;
   border: 2px solid #c8d0da;
@@ -49,8 +49,8 @@ body {
 
 .desk {
   position: absolute;
-  width: 155px;
-  height: 90px;
+  width: 130px;
+  height: 80px;
   cursor: pointer;
   transition: all 0.3s ease;
   transform-style: preserve-3d;
@@ -65,18 +65,18 @@ body {
   position: absolute;
   bottom: 0;
   width: 100%;
-  height: 50px;
+  height: 44px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .desk-screen {
   position: absolute;
-  bottom: 38px;
+  bottom: 34px;
   left: 50%;
   transform: translateX(-50%);
-  width: 36px;
-  height: 28px;
+  width: 30px;
+  height: 22px;
   background: #2d3436;
   border-radius: 3px 3px 0 0;
   border: 2px solid #636e72;
@@ -90,10 +90,10 @@ body {
 
 .agent-avatar {
   position: absolute;
-  bottom: 50px;
+  bottom: 44px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 36px;
+  font-size: 30px;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.2));
   transition: transform 0.3s ease;
 }
@@ -104,10 +104,10 @@ body {
 
 .agent-name {
   position: absolute;
-  bottom: -18px;
+  bottom: -16px;
   width: 100%;
   text-align: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #2d3436;
   letter-spacing: 0.3px;
@@ -115,28 +115,28 @@ body {
 
 .status-badge {
   position: absolute;
-  top: 2px;
-  right: 8px;
-  font-size: 8px;
+  top: -2px;
+  right: 2px;
+  font-size: 7px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 10px;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
 }
 
 .task-bubble {
   position: absolute;
-  bottom: 88px;
+  bottom: 78px;
   left: 50%;
   transform: translateX(-50%);
   background: white;
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 8px;
   color: #636e72;
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -144,24 +144,19 @@ body {
   transition: opacity 0.3s ease;
 }
 
-.desk:hover .task-bubble {
-  opacity: 1;
-}
+.desk:hover .task-bubble { opacity: 1; }
 
 .task-bubble::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid white;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid white;
 }
 
-/* Status colors */
 .status-working { background: #00B89422; color: #00B894; }
 .status-idle { background: #B2BEC322; color: #B2BEC3; }
 .status-standby { background: #FDCB6E22; color: #FDCB6E; }
@@ -171,7 +166,6 @@ body {
 .screen-idle { background: linear-gradient(135deg, #636e72, #b2bec3); }
 .screen-standby { background: linear-gradient(135deg, #FDCB6E, #F6E58D); }
 
-/* Pulse for working */
 @keyframes pulse-glow {
   0% { box-shadow: 0 0 5px rgba(0,184,148,0.3); }
   50% { box-shadow: 0 0 20px rgba(0,184,148,0.6); }
@@ -179,22 +173,9 @@ body {
 }
 .desk-working { animation: pulse-glow 2s infinite; border-radius: 8px; }
 
-/* Typing animation for working */
-@keyframes typing {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-.typing-dots span {
-  animation: typing 1.4s infinite;
-  font-size: 14px;
-}
-.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-/* Office decorations */
 .plant {
   position: absolute;
-  font-size: 24px;
+  font-size: 20px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
 }
 
@@ -202,34 +183,32 @@ body {
   position: absolute;
   top: 8px;
   left: 12px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #636e72;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
-/* Info panel */
 .info-panel {
   position: fixed;
   top: 0;
-  right: -320px;
-  width: 320px;
+  right: -300px;
+  width: 300px;
   height: 100%;
   background: white;
   box-shadow: -4px 0 20px rgba(0,0,0,0.1);
   transition: right 0.3s ease;
   z-index: 100;
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
 }
 .info-panel.open { right: 0; }
-.info-panel h3 { font-size: 18px; margin-bottom: 4px; }
-.info-panel .role { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-.info-panel .section { margin-top: 16px; }
-.info-panel .section h4 { font-size: 12px; color: #636e72; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-.info-panel .job-item { padding: 8px; background: #f8f9fa; border-radius: 8px; margin-bottom: 6px; font-size: 12px; }
-.info-panel .close-btn { position: absolute; top: 12px; right: 12px; cursor: pointer; font-size: 18px; color: #b2bec3; }
+.info-panel h3 { font-size: 16px; margin-bottom: 4px; }
+.info-panel .role { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.info-panel .section { margin-top: 14px; }
+.info-panel .section h4 { font-size: 11px; color: #636e72; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.info-panel .close-btn { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 16px; color: #b2bec3; }
 .info-panel .close-btn:hover { color: #2d3436; }
 </style>
 </head>
@@ -242,12 +221,13 @@ body {
     <div class="office-label">🏢 Mr Kai's Office</div>
 
     <!-- Plants -->
-    <div class="plant" style="top:10px;right:20px;">🌿</div>
-    <div class="plant" style="bottom:15px;left:15px;">🪴</div>
-    <div class="plant" style="top:50%;right:10px;">🌱</div>
+    <div class="plant" style="top:8px;right:16px;">🌿</div>
+    <div class="plant" style="bottom:12px;left:12px;">🪴</div>
+    <div class="plant" style="top:45%;right:8px;">🌱</div>
+    <div class="plant" style="bottom:12px;right:50px;">🌿</div>
 
-    <!-- Mr Brain -->
-    <div class="desk" id="desk-brain" style="top:40px;left:40px;" onclick="showPanel('brain')">
+    <!-- Row 1: Brain, Engineering, Design -->
+    <div class="desk" id="desk-brain" style="top:30px;left:30px;" onclick="showPanel('brain')">
       <div class="task-bubble" id="bubble-brain">🪑 Nothing active</div>
       <div class="agent-avatar">🧠</div>
       <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-brain"></div></div>
@@ -256,8 +236,7 @@ body {
       <div class="agent-name">Mr Brain</div>
     </div>
 
-    <!-- Mr Engineering -->
-    <div class="desk" id="desk-engineering" style="top:40px;left:240px;" onclick="showPanel('engineering')">
+    <div class="desk" id="desk-engineering" style="top:30px;left:190px;" onclick="showPanel('engineering')">
       <div class="task-bubble" id="bubble-engineering">🪑 Nothing active</div>
       <div class="agent-avatar">💻</div>
       <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-engineering"></div></div>
@@ -266,8 +245,7 @@ body {
       <div class="agent-name">Mr Engineering</div>
     </div>
 
-    <!-- Mr Design -->
-    <div class="desk" id="desk-design" style="top:220px;left:40px;" onclick="showPanel('design')">
+    <div class="desk" id="desk-design" style="top:30px;left:350px;" onclick="showPanel('design')">
       <div class="task-bubble" id="bubble-design">🪑 Nothing active</div>
       <div class="agent-avatar">🎨</div>
       <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-design"></div></div>
@@ -276,8 +254,8 @@ body {
       <div class="agent-name">Mr Design</div>
     </div>
 
-    <!-- Mr Marketing -->
-    <div class="desk" id="desk-marketing" style="top:220px;left:240px;" onclick="showPanel('marketing')">
+    <!-- Row 2: Marketing, Analytics, Support -->
+    <div class="desk" id="desk-marketing" style="top:200px;left:30px;" onclick="showPanel('marketing')">
       <div class="task-bubble" id="bubble-marketing">🪑 Nothing active</div>
       <div class="agent-avatar">📢</div>
       <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-marketing"></div></div>
@@ -286,29 +264,57 @@ body {
       <div class="agent-name">Mr Marketing</div>
     </div>
 
-    <!-- Mr Kai's desk (center, bigger) -->
-    <div style="position:absolute;top:130px;left:460px;text-align:center;">
-      <div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">👔</div>
-      <div style="width:120px;height:40px;background:linear-gradient(135deg,#6C5CE730,#0984E330);border-radius:8px;border:2px solid #6C5CE740;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
-      <div style="font-size:10px;font-weight:800;color:#6C5CE7;margin-top:4px;letter-spacing:0.5px;">MR KAI</div>
+    <div class="desk" id="desk-analytics" style="top:200px;left:190px;" onclick="showPanel('analytics')">
+      <div class="task-bubble" id="bubble-analytics">🪑 Nothing active</div>
+      <div class="agent-avatar">📊</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-analytics"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#6F42C120,#6F42C140);border:1px solid #6F42C130;"></div>
+      <div class="status-badge status-idle" id="badge-analytics">⚪ IDLE</div>
+      <div class="agent-name">Mr Analytics</div>
+    </div>
+
+    <div class="desk" id="desk-support" style="top:200px;left:350px;" onclick="showPanel('support')">
+      <div class="task-bubble" id="bubble-support">🪑 Nothing active</div>
+      <div class="agent-avatar">🤝</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-support"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#E8439320,#E8439340);border:1px solid #E8439330;"></div>
+      <div class="status-badge status-idle" id="badge-support">⚪ IDLE</div>
+      <div class="agent-name">Mr Support</div>
+    </div>
+
+    <!-- Row 3: Operations -->
+    <div class="desk" id="desk-operations" style="top:370px;left:30px;" onclick="showPanel('operations')">
+      <div class="task-bubble" id="bubble-operations">🪑 Nothing active</div>
+      <div class="agent-avatar">📋</div>
+      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-operations"></div></div>
+      <div class="desk-surface" style="background:linear-gradient(135deg,#FD7E1420,#FD7E1440);border:1px solid #FD7E1430;"></div>
+      <div class="status-badge status-idle" id="badge-operations">⚪ IDLE</div>
+      <div class="agent-name">Mr Operations</div>
+    </div>
+
+    <!-- Mr Kai's desk (center-right, bigger) -->
+    <div style="position:absolute;top:280px;left:560px;text-align:center;">
+      <div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">👔</div>
+      <div style="width:110px;height:36px;background:linear-gradient(135deg,#6C5CE730,#0984E330);border-radius:8px;border:2px solid #6C5CE740;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+      <div style="font-size:9px;font-weight:800;color:#6C5CE7;margin-top:4px;letter-spacing:0.5px;">MR KAI</div>
     </div>
   </div>
 </div>
 
-<!-- Info panel (slides in on click) -->
+<!-- Info panel -->
 <div class="info-panel" id="info-panel">
   <div class="close-btn" onclick="closePanel()">✕</div>
-  <div style="font-size:36px;text-align:center;margin-bottom:8px;" id="panel-emoji">🧠</div>
+  <div style="font-size:32px;text-align:center;margin-bottom:6px;" id="panel-emoji">🧠</div>
   <h3 id="panel-name">Mr Brain</h3>
   <div class="role" id="panel-role">Orchestrator + Product</div>
   <div id="panel-status" style="margin-top:8px;"></div>
   <div class="section">
     <h4>Current Work</h4>
-    <div id="panel-current">No active tasks</div>
+    <div id="panel-current" style="font-size:12px;">No active tasks</div>
   </div>
   <div class="section">
     <h4>Recent Output</h4>
-    <div id="panel-recent">No recent output</div>
+    <div id="panel-recent" style="font-size:12px;">No recent output</div>
   </div>
 </div>
 
@@ -318,6 +324,9 @@ const agents = {
   engineering: { name: 'Mr Engineering', emoji: '💻', role: 'Engineering Lead', color: '#0984E3' },
   design: { name: 'Mr Design', emoji: '🎨', role: 'Design Lead', color: '#E17055' },
   marketing: { name: 'Mr Marketing', emoji: '📢', role: 'Marketing Lead', color: '#00B894' },
+  analytics: { name: 'Mr Analytics', emoji: '📊', role: 'Data & Insights Lead', color: '#6F42C1' },
+  support: { name: 'Mr Support', emoji: '🤝', role: 'Customer & Compliance Lead', color: '#E84393' },
+  operations: { name: 'Mr Operations', emoji: '📋', role: 'Operations & Project Lead', color: '#FD7E14' },
 };
 
 function showPanel(id) {
@@ -327,23 +336,19 @@ function showPanel(id) {
   document.getElementById('panel-role').textContent = a.role;
   document.getElementById('panel-role').style.color = a.color;
   document.getElementById('info-panel').classList.add('open');
-
-  // Send message to Streamlit
-  if (window.parent) {
-    window.parent.postMessage({type: 'agent-click', agent: a.name}, '*');
-  }
+  if (window.parent) window.parent.postMessage({type: 'agent-click', agent: a.name}, '*');
 }
 
 function closePanel() {
   document.getElementById('info-panel').classList.remove('open');
 }
 
-// Update from Streamlit data
 function updateAgent(id, status, task) {
   const badge = document.getElementById('badge-' + id);
   const screen = document.getElementById('screen-' + id);
   const bubble = document.getElementById('bubble-' + id);
   const desk = document.getElementById('desk-' + id);
+  if (!badge) return;
 
   if (status === 'Busy') {
     badge.className = 'status-badge status-working';
@@ -366,11 +371,9 @@ function updateAgent(id, status, task) {
   }
 }
 
-// Listen for updates from Streamlit
 window.addEventListener('message', function(e) {
   if (e.data && e.data.type === 'update-agents') {
-    const data = e.data.agents;
-    for (const [id, info] of Object.entries(data)) {
+    for (const [id, info] of Object.entries(e.data.agents)) {
       updateAgent(id, info.status, info.task);
     }
   }

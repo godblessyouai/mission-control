@@ -1,22 +1,37 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "orchestrator": "Mr Brain",
   "orchestratorSkill": "mr-brain",
   "agents": [
     {
       "name": "Mr Engineering",
       "skill": "mr-engineering",
-      "triggers": ["build", "code", "api", "bug", "devops", "security", "mobile", "architecture"]
+      "triggers": ["build", "code", "api", "bug", "devops", "security", "mobile", "architecture", "deploy", "server", "database", "fix"]
     },
     {
       "name": "Mr Design",
       "skill": "mr-design",
-      "triggers": ["ui", "ux", "brand", "design", "storyboard", "creative", "prompt image"]
+      "triggers": ["ui", "ux", "brand", "design", "storyboard", "creative", "prompt image", "logo", "wireframe", "mockup", "visual"]
     },
     {
       "name": "Mr Marketing",
       "skill": "mr-marketing",
-      "triggers": ["campaign", "ads", "growth", "instagram", "tiktok", "social", "xhs", "content"]
+      "triggers": ["campaign", "ads", "growth", "instagram", "tiktok", "social", "xhs", "content", "copywriting", "caption", "post", "promo"]
+    },
+    {
+      "name": "Mr Analytics",
+      "skill": "mr-analytics",
+      "triggers": ["data", "analytics", "report", "sales", "revenue", "kpi", "dashboard", "metrics", "roi", "finance", "budget", "forecast"]
+    },
+    {
+      "name": "Mr Support",
+      "skill": "mr-support",
+      "triggers": ["customer", "complaint", "review", "reply", "support", "service", "compliance", "pdpa", "legal", "contract"]
+    },
+    {
+      "name": "Mr Operations",
+      "skill": "mr-operations",
+      "triggers": ["project", "timeline", "deadline", "vendor", "supplier", "inventory", "stock", "process", "ops", "experiment", "ab test"]
     }
   ],
   "routingPolicy": {

@@ -126,6 +126,9 @@ AGENTS = {
     "Mr Engineering": {"emoji": "💻", "role": "Engineering Lead", "color": "#0984E3", "skills": 10},
     "Mr Design": {"emoji": "🎨", "role": "Design Lead", "color": "#E17055", "skills": 9},
     "Mr Marketing": {"emoji": "📢", "role": "Marketing Lead", "color": "#00B894", "skills": 8},
+    "Mr Analytics": {"emoji": "📊", "role": "Data & Insights Lead", "color": "#6F42C1", "skills": 8},
+    "Mr Support": {"emoji": "🤝", "role": "Customer & Compliance Lead", "color": "#E84393", "skills": 6},
+    "Mr Operations": {"emoji": "📋", "role": "Operations & Project Lead", "color": "#FD7E14", "skills": 7},
 }
 
 st.markdown("""
@@ -133,7 +136,7 @@ st.markdown("""
     <span style="font-size:42px;">🧭</span>
     <div>
         <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mr Kai's Mission Control</h1>
-        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 3 specialist agents</p>
+        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 6 specialist agents</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -549,6 +552,9 @@ with tab_office:
         "engineering": "Mr Engineering",
         "design": "Mr Design",
         "marketing": "Mr Marketing",
+        "analytics": "Mr Analytics",
+        "support": "Mr Support",
+        "operations": "Mr Operations",
     }
     update_js = "<script>document.addEventListener('DOMContentLoaded', function(){ "
     for key, full_name in agent_map.items():
