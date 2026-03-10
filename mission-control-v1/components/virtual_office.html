@@ -283,13 +283,6 @@ body {
     </div>
 
     <!-- Row 3: Operations -->
-    <div class="desk" id="desk-operations" style="top:370px;left:30px;" onclick="showPanel('operations')">
-      <div class="task-bubble" id="bubble-operations">🪑 Nothing active</div>
-      <div class="agent-avatar">📋</div>
-      <div class="desk-screen"><div class="desk-screen-glow screen-idle" id="screen-operations"></div></div>
-      <div class="desk-surface" style="background:linear-gradient(135deg,#FD7E1420,#FD7E1440);border:1px solid #FD7E1430;"></div>
-      <div class="status-badge status-idle" id="badge-operations">⚪ IDLE</div>
-      <div class="agent-name">Mr Operations</div>
     </div>
 
     <!-- Mr Kai's desk (center-right, bigger) -->
@@ -326,7 +319,6 @@ const agents = {
   marketing: { name: 'Mr Marketing', emoji: '📢', role: 'Marketing Lead', color: '#00B894' },
   analytics: { name: 'Mr Analytics', emoji: '📊', role: 'Data & Insights Lead', color: '#6F42C1' },
   support: { name: 'Mr Support', emoji: '🤝', role: 'Customer & Compliance Lead', color: '#E84393' },
-  operations: { name: 'Mr Operations', emoji: '📋', role: 'Operations & Project Lead', color: '#FD7E14' },
 };
 
 function showPanel(id) {
