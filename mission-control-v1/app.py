@@ -1,4 +1,6 @@
 import json
+import os
+import socket
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -13,6 +15,272 @@ from db import (
 )
 
 st.set_page_config(page_title="Mr Kai's Mission Control", layout="wide", page_icon="🧭")
+
+# ---------- Design System CSS (Section 6 of Design Spec) ----------
+st.markdown("""
+<style>
+:root {
+  --bg-app: #F6F8FC;
+  --bg-surface: #FFFFFF;
+  --bg-surface-soft: #F9FAFB;
+  --bg-header: #1A1A2E;
+  --border-subtle: #E5E7EB;
+  --border-strong: #D1D5DB;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+  --text-on-dark: #F9FAFB;
+  --accent-primary: #6C5CE7;
+  --accent-primary-hover: #5B4BD6;
+  --status-queued: #3B82F6;
+  --status-inprogress: #F59E0B;
+  --status-done: #10B981;
+  --status-blocked: #EF4444;
+  --radius-card: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+}
+
+html, body, [class*="css"]  {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text-primary);
+}
+
+.stApp {
+  background: var(--bg-app);
+}
+
+.main .block-container {
+  max-width: 1440px;
+  padding-top: 1rem;
+  padding-bottom: 2rem;
+}
+
+/* Hide default Streamlit chrome */
+#MainMenu, footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+  visibility: hidden;
+  display: none !important;
+}
+
+/* Sticky top header wrapper */
+.mc-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: linear-gradient(135deg, #1A1A2E 0%, #232347 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(17,24,39,0.18);
+}
+
+.mc-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: var(--text-on-dark);
+  margin: 0;
+}
+
+.mc-subtitle {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #D1D5DB;
+  margin: 2px 0 0;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 8px;
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 0 8px 0;
+}
+
+.stTabs [data-baseweb="tab"] {
+  height: 36px;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: #EEF2FF;
+  color: #3730A3;
+}
+
+/* KPI metric cards */
+[data-testid="stMetric"] {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: 14px 16px !important;
+  box-shadow: 0 2px 8px rgba(17,24,39,0.04);
+}
+
+[data-testid="stMetricLabel"] {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+[data-testid="stMetricValue"] {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Cards / containers */
+div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlockBorderWrapper"] {
+  border-radius: 16px;
+}
+
+.mc-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.mc-agent-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 148px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.mc-agent-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(17,24,39,0.10);
+  border-color: var(--border-strong);
+}
+
+/* Row cards for jobs/tasks */
+.mc-row-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.mc-row-card:hover {
+  background: var(--bg-surface-soft);
+}
+
+.mc-urgency-low { border-left: 4px solid #10B981; }
+.mc-urgency-medium { border-left: 4px solid #F59E0B; }
+.mc-urgency-high { border-left: 4px solid #F97316; }
+.mc-urgency-critical { border-left: 4px solid #EF4444; }
+
+/* Pills */
+.mc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.mc-pill-queued { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+.mc-pill-inprogress { background: #FFFBEB; color: #B45309; border-color: #FCD34D; }
+.mc-pill-done { background: #ECFDF5; color: #047857; border-color: #86EFAC; }
+.mc-pill-blocked { background: #FEF2F2; color: #B91C1C; border-color: #FCA5A5; }
+.mc-pill-open { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+.mc-pill-snoozed { background: #F3F4F6; color: #6B7280; border-color: #D1D5DB; }
+.mc-pill-new { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+
+/* Alerts */
+.mc-alert {
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid;
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.mc-alert-danger { background:#FEF2F2; border-color:#FCA5A5; color:#991B1B; }
+.mc-alert-warning { background:#FFFBEB; border-color:#FCD34D; color:#92400E; }
+.mc-alert-info { background:#EFF6FF; border-color:#93C5FD; color:#1E3A8A; }
+.mc-alert-success { background:#ECFDF5; border-color:#86EFAC; color:#065F46; }
+
+/* Quick command strip */
+.mc-command-bar {
+  background: linear-gradient(135deg, #1A1A2E 0%, #232347 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px;
+  margin: 8px 0 16px;
+}
+
+.stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+  border-radius: 10px !important;
+  border: 1px solid var(--border-strong) !important;
+}
+
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px rgba(108,92,231,.20) !important;
+}
+
+.stButton > button {
+  border-radius: 10px !important;
+  border: 1px solid var(--border-subtle) !important;
+  height: 38px;
+  font-weight: 600;
+}
+
+/* Primary action button if wrapped in class context */
+.mc-primary-btn .stButton > button {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+  border-color: var(--accent-primary) !important;
+}
+
+.mc-primary-btn .stButton > button:hover {
+  background: var(--accent-primary-hover) !important;
+  border-color: var(--accent-primary-hover) !important;
+}
+
+/* Dataframe readability */
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.streamlit-expanderHeader {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+
+.skill-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  margin: 2px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
 init_db()
 quick_seed()
 
@@ -39,54 +307,34 @@ AGENT_WORKSPACES = {
     "Mr QA": Path.home() / ".openclaw/workspace-mr-qa/skills",
 }
 
-# ---------- Custom CSS ----------
-st.markdown("""
-<style>
-.agent-card {
-    text-align: center;
-    padding: 16px 12px;
-    border-radius: 16px;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-}
-.agent-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-.agent-card a { text-decoration: none !important; color: inherit !important; }
-[data-testid="stMetric"] {
-    background: rgba(255,255,255,0.03);
-    border-radius: 12px;
-    padding: 12px !important;
-    border: 1px solid rgba(0,0,0,0.06);
-}
-.stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    background: rgba(0,0,0,0.02);
-    border-radius: 12px;
-    padding: 4px;
-}
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-weight: 600;
-}
-[data-testid="stDataFrame"] { border-radius: 12px; overflow: hidden; }
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-[data-testid="stSidebar"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
-.streamlit-expanderHeader { font-weight: 600 !important; font-size: 15px !important; }
-.skill-chip {
-    display: inline-block;
-    padding: 3px 10px;
-    margin: 2px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-}
-</style>
-""", unsafe_allow_html=True)
+
+# ---------- Helper: status pill HTML ----------
+def pill(label: str) -> str:
+    """Return an HTML status pill badge for a given status/urgency label."""
+    mapping = {
+        "Queued": "queued",
+        "In Progress": "inprogress",
+        "Done": "done",
+        "Blocked": "blocked",
+        "Open": "open",
+        "Snoozed": "snoozed",
+        "New": "new",
+        "Low": "done",
+        "Medium": "queued",
+        "High": "inprogress",
+        "Critical": "blocked",
+    }
+    cls = mapping.get(label, "queued")
+    return f'<span class="mc-pill mc-pill-{cls}">{label}</span>'
+
+
+def urgency_class(urgency: str) -> str:
+    return {
+        "Low": "mc-urgency-low",
+        "Medium": "mc-urgency-medium",
+        "High": "mc-urgency-high",
+        "Critical": "mc-urgency-critical",
+    }.get(urgency, "mc-urgency-medium")
 
 
 # ===================== ROUTING =====================
@@ -136,7 +384,6 @@ def render_agent_page(agent_name):
         st.error(f"Unknown agent: {agent_name}")
         return
 
-    # Back button
     if st.button("← Back to Dashboard"):
         st.query_params.clear()
         st.rerun()
@@ -151,7 +398,6 @@ def render_agent_page(agent_name):
     </div>
     """, unsafe_allow_html=True)
 
-    # Status sync
     sync_agent_status(agent_name)
     s_df = fetch_df("SELECT * FROM agent_status WHERE agent_name = ?", [agent_name])
     status = "Idle"
@@ -164,7 +410,6 @@ def render_agent_page(agent_name):
     status_labels = {"Busy": "🟢 WORKING", "Standby": "🟡 STANDBY", "Idle": "⚪ IDLE", "Away": "🔴 AWAY"}
     sc = status_colors.get(status, "#B2BEC3")
 
-    # KPI row
     stats = fetch_df("""
         SELECT
             SUM(CASE WHEN status = 'Queued' THEN 1 ELSE 0 END) as queued,
@@ -187,7 +432,6 @@ def render_agent_page(agent_name):
     if current_task:
         st.info(f"💬 Currently working on: **{current_task}**")
 
-    # Tabs for this agent
     a_tab1, a_tab2, a_tab3, a_tab4 = st.tabs(["📋 Active Jobs", "✅ Completed", "📜 Activity Log", "🔧 Skills"])
 
     with a_tab1:
@@ -268,7 +512,6 @@ def render_agent_page(agent_name):
                     chips += f'<span class="skill-chip" style="background:{info["color"]}15;color:{info["color"]};border:1px solid {info["color"]}30;">{sn}</span>'
                 st.markdown(f'<div style="margin:8px 0;">{chips}</div>', unsafe_allow_html=True)
                 st.caption(f"{len(skill_list)} skills installed")
-
                 for sn in skill_list:
                     skill_md = ws_path / sn / "SKILL.md"
                     if skill_md.exists():
@@ -292,73 +535,67 @@ if params.get("agent"):
 
 
 # ===================== MAIN DASHBOARD =====================
-st.markdown("""
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-    <span style="font-size:42px;">🧭</span>
-    <div>
-        <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mr Kai's Mission Control</h1>
-        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 7 specialist agents</p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ---------- Agent avatar rows (clickable via st.link_button) ----------
-agent_items = list(AGENTS.items())
-for row_start in range(0, len(agent_items), 4):
-    row = agent_items[row_start:row_start + 4]
-    agent_cols = st.columns(len(row))
-    for col, (name, info) in zip(agent_cols, row):
-        with col:
-            active_count = 0
-            done_count = 0
-            try:
-                active_df = fetch_df(
-                    "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status IN ('Queued','In Progress')",
-                    [name],
-                )
-                active_count = int(active_df.iloc[0]["cnt"] or 0)
-                done_df = fetch_df(
-                    "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status = 'Done'",
-                    [name],
-                )
-                done_count = int(done_df.iloc[0]["cnt"] or 0)
-            except Exception:
-                pass
-            status_dot = "🟢" if active_count > 0 else "⚪"
-            glow = f"box-shadow: 0 0 20px {info['color']}40;" if active_count > 0 else ""
-            card_container = col.container(border=True)
-            with card_container:
-                st.markdown(
-                    f"""<div style="text-align:center;padding:4px 0;">
-                        <div style="font-size:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">{info['emoji']}</div>
-                        <div style="font-weight:800;font-size:13px;margin-top:4px;color:#2d3436;">{name}</div>
-                        <div style="font-size:10px;color:{info['color']};font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">{info['role']}</div>
-                        <div style="display:flex;justify-content:center;gap:6px;margin-top:6px;font-size:10px;color:#636e72;">
-                            <span>{status_dot} {active_count} active</span><span>·</span>
-                            <span>✅ {done_count} done</span><span>·</span>
-                            <span>🔧 {info['skills']} skills</span>
-                        </div>
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
-                if st.button(f"{info['emoji']} Open", key=f"open_{name}", use_container_width=True):
-                    st.query_params["agent"] = name
-                    st.rerun()
-
-st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ---------- Read-only mode for cloud deployment ----------
-import os
-import socket
 _hostname = socket.getfqdn().lower()
 READONLY = (
     os.environ.get("READONLY", "0") == "1"
     or "streamlit" in _hostname
-    or not Path.home().joinpath(".openclaw").exists()  # no OpenClaw = cloud
+    or not Path.home().joinpath(".openclaw").exists()
 )
 
-# ---------- Quick Command (hidden in read-only mode) ----------
+# ---------- Sticky header with dark background ----------
+st.markdown("""
+<div class="mc-sticky-header">
+  <p class="mc-title">🧭 Mr Kai's Mission Control</p>
+  <p class="mc-subtitle">Executive command center · Powered by Mr Brain + 7 specialist agents</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------- Agent cards — single row of 8 ----------
+agent_items = list(AGENTS.items())
+agent_cols = st.columns(8)
+for col, (name, info) in zip(agent_cols, agent_items):
+    with col:
+        active_count = 0
+        done_count = 0
+        try:
+            active_df = fetch_df(
+                "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status IN ('Queued','In Progress')",
+                [name],
+            )
+            active_count = int(active_df.iloc[0]["cnt"] or 0)
+            done_df = fetch_df(
+                "SELECT COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? AND status = 'Done'",
+                [name],
+            )
+            done_count = int(done_df.iloc[0]["cnt"] or 0)
+        except Exception:
+            pass
+        status_dot = "🟢" if active_count > 0 else "⚪"
+        glow_style = f"box-shadow: 0 0 0 2px {info['color']}33, 0 10px 24px rgba(17,24,39,0.12);" if active_count > 0 else ""
+        st.markdown(
+            f"""<div class="mc-agent-card" style="{glow_style}">
+                <div style="text-align:center;">
+                    <div style="font-size:36px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));">{info['emoji']}</div>
+                    <div style="font-weight:800;font-size:12px;margin-top:4px;color:#111827;">{name}</div>
+                    <div style="font-size:10px;color:{info['color']};font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">{info['role'][:18]}</div>
+                    <div style="display:flex;justify-content:center;gap:4px;margin-top:6px;font-size:10px;color:#6B7280;flex-wrap:wrap;">
+                        <span>{status_dot} {active_count}</span><span>·</span><span>✅{done_count}</span>
+                    </div>
+                </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        if st.button(f"Open", key=f"open_{name}", use_container_width=True):
+            st.query_params["agent"] = name
+            st.rerun()
+
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+# ---------- Quick Command Bar ----------
 if not READONLY:
+    st.markdown('<div class="mc-command-bar">', unsafe_allow_html=True)
     with st.form("quick_command_form", clear_on_submit=True):
         qc1, qc2 = st.columns([5, 1])
         with qc1:
@@ -395,8 +632,7 @@ if not READONLY:
             if job_id:
                 update_ai_job(job_id, {"status": "In Progress", "route_reason": f"auto-triggered → {best_agent}"})
             st.success(f"✅ Auto-triggered **{best_agent}** — Job #{job_id}")
-
-st.divider()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------- Filters ----------
 companies = ["All"] + fetch_df("SELECT name FROM companies ORDER BY name")["name"].tolist()
@@ -449,31 +685,30 @@ open_tasks_val = int(kpi.iloc[0]["open_tasks"] or 0)
 escalations_val = int(kpi.iloc[0]["escalations"] or 0)
 overdue_val = int(kpi.iloc[0]["overdue"] or 0)
 due_today_val = int(kpi.iloc[0]["due_today"] or 0)
-c1.metric("Open tasks", open_tasks_val)
+c1.metric("Open Tasks", open_tasks_val)
 c2.metric("Escalations", escalations_val)
 c3.metric("Overdue", overdue_val)
-c4.metric("Due today", due_today_val)
+c4.metric("Due Today", due_today_val)
 
-# ---------- Smart Alerts ----------
-alerts = []
+# ---------- Smart Alerts (using mc-alert CSS classes) ----------
+alerts_html = []
 if overdue_val > 0:
-    alerts.append(f"🔴 **{overdue_val} overdue task(s)** — need attention now")
+    alerts_html.append(f'<div class="mc-alert mc-alert-danger">🔴 <strong>{overdue_val} overdue task(s)</strong> — need attention now</div>')
 if escalations_val > 0:
-    alerts.append(f"🟠 **{escalations_val} escalation(s)** — waiting for your decision")
+    alerts_html.append(f'<div class="mc-alert mc-alert-warning">🟠 <strong>{escalations_val} escalation(s)</strong> — waiting for your decision</div>')
 if due_today_val > 0:
-    alerts.append(f"🟡 **{due_today_val} task(s) due today** — check before EOD")
+    alerts_html.append(f'<div class="mc-alert mc-alert-info">🟡 <strong>{due_today_val} task(s) due today</strong> — check before EOD</div>')
 
 stale_jobs = fetch_df("SELECT COUNT(*) as cnt FROM ai_jobs WHERE status = 'In Progress' AND datetime(updated_at) < datetime('now', '-24 hours')")
 stale_count = int(stale_jobs.iloc[0]["cnt"] or 0)
 if stale_count > 0:
-    alerts.append(f"⚪ **{stale_count} AI job(s)** stuck In Progress for 24h+")
+    alerts_html.append(f'<div class="mc-alert mc-alert-warning">⚪ <strong>{stale_count} AI job(s)</strong> stuck In Progress for 24h+</div>')
 
-if alerts:
-    with st.expander(f"🔔 Smart Alerts ({len(alerts)})", expanded=True):
-        for a in alerts:
-            st.markdown(a)
+if alerts_html:
+    with st.expander(f"🔔 Smart Alerts ({len(alerts_html)})", expanded=True):
+        st.markdown("".join(alerts_html), unsafe_allow_html=True)
 else:
-    st.caption("🔔 No alerts — all clear")
+    st.markdown('<div class="mc-alert mc-alert-success">🔔 No alerts — all clear</div>', unsafe_allow_html=True)
 
 # ---------- Today Focus ----------
 focus = fetch_df(f"""
@@ -490,10 +725,11 @@ with st.expander("🎯 Today Focus (Top 5)", expanded=True):
     else:
         st.dataframe(focus, use_container_width=True, hide_index=True)
 
-# ---------- Tabs ----------
-tab_office, tab_team, tab_tasks, tab_escalations, tab_comms, tab_ai, tab_trends, tab_feedback, tab_auto = st.tabs(
-    ["🏢 Office", "🤖 Team", "📋 Tasks", "🚨 Escalations", "📨 Comms", "🤖 AI Workers", "🔍 Trends", "💬 Feedback", "⚙️ Automation"]
+# ---------- 5 Tabs ----------
+tab_office, tab_jobs, tab_tasks, tab_inbox, tab_settings = st.tabs(
+    ["🏢 Office", "🤖 Jobs", "📋 Tasks", "📨 Inbox", "⚙️ Settings"]
 )
+
 
 # ==================== OFFICE TAB ====================
 with tab_office:
@@ -504,22 +740,24 @@ with tab_office:
     agent_statuses = {row["agent_name"]: dict(row) for _, row in statuses_df.iterrows()} if not statuses_df.empty else {}
 
     office_html_path = Path(__file__).parent / "components" / "virtual_office.html"
-    office_html = office_html_path.read_text()
-
-    agent_map = {
-        "brain": "Mr Brain", "engineering": "Mr Engineering", "design": "Mr Design",
-        "marketing": "Mr Marketing", "analytics": "Mr Analytics", "support": "Mr Support",
-        "spatial": "Mr Spatial", "qa": "Mr QA",
-    }
-    update_js = "<script>document.addEventListener('DOMContentLoaded', function(){ "
-    for key, full_name in agent_map.items():
-        s = agent_statuses.get(full_name, {})
-        status = s.get("status", "Idle")
-        task = (s.get("current_task", "") or "").replace("'", "\\'")[:80]
-        update_js += f"updateAgent('{key}', '{status}', '{task}'); "
-    update_js += "});</script>"
-    office_html = office_html.replace("</body>", update_js + "</body>")
-    components.html(office_html, height=560, scrolling=False)
+    if office_html_path.exists():
+        office_html = office_html_path.read_text()
+        agent_map = {
+            "brain": "Mr Brain", "engineering": "Mr Engineering", "design": "Mr Design",
+            "marketing": "Mr Marketing", "analytics": "Mr Analytics", "support": "Mr Support",
+            "spatial": "Mr Spatial", "qa": "Mr QA",
+        }
+        update_js = "<script>document.addEventListener('DOMContentLoaded', function(){ "
+        for key, full_name in agent_map.items():
+            s = agent_statuses.get(full_name, {})
+            status = s.get("status", "Idle")
+            task = (s.get("current_task", "") or "").replace("'", "\\'")[:80]
+            update_js += f"updateAgent('{key}', '{status}', '{task}'); "
+        update_js += "});</script>"
+        office_html = office_html.replace("</body>", update_js + "</body>")
+        components.html(office_html, height=560, scrolling=False)
+    else:
+        st.info("Virtual office component not found.")
 
     STATUS_META = {
         "Busy": {"dot": "🟢", "label": "WORKING"},
@@ -554,26 +792,168 @@ with tab_office:
     if st.button("🔄 Refresh Office"):
         st.rerun()
 
-# ==================== TEAM TAB ====================
-with tab_team:
-    st.subheader("Agent Team Overview")
-    for name, info in AGENTS.items():
-        with st.expander(f"{info['emoji']} {name} — {info['role']}", expanded=False):
-            st.markdown(f"[🔗 Open full agent page](?agent={name.replace(' ', '+')})")
-            team_jobs = fetch_df("SELECT status, COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? GROUP BY status", [name])
-            if team_jobs.empty:
-                st.caption("No jobs assigned yet.")
-            else:
-                m1, m2, m3 = st.columns(3)
-                queued = int(team_jobs[team_jobs["status"] == "Queued"]["cnt"].sum()) if "Queued" in team_jobs["status"].values else 0
-                in_prog = int(team_jobs[team_jobs["status"] == "In Progress"]["cnt"].sum()) if "In Progress" in team_jobs["status"].values else 0
-                done = int(team_jobs[team_jobs["status"] == "Done"]["cnt"].sum()) if "Done" in team_jobs["status"].values else 0
-                m1.metric("Queued", queued)
-                m2.metric("In Progress", in_prog)
-                m3.metric("Done", done)
-            recent = fetch_df("SELECT id, request, status, updated_at FROM ai_jobs WHERE assigned_agent = ? ORDER BY updated_at DESC LIMIT 5", [name])
-            if not recent.empty:
-                st.dataframe(recent, use_container_width=True, hide_index=True)
+
+# ==================== JOBS TAB (Team + AI Workers merged) ====================
+with tab_jobs:
+    job_section_team, job_section_ai = st.tabs(["👥 Team Overview", "🤖 AI Workers"])
+
+    # -- Team Overview sub-tab --
+    with job_section_team:
+        st.subheader("Agent Team Overview")
+        for name, info in AGENTS.items():
+            with st.expander(f"{info['emoji']} {name} — {info['role']}", expanded=False):
+                st.markdown(f"[🔗 Open full agent page](?agent={name.replace(' ', '+')})")
+                team_jobs = fetch_df("SELECT status, COUNT(*) as cnt FROM ai_jobs WHERE assigned_agent = ? GROUP BY status", [name])
+                if team_jobs.empty:
+                    st.caption("No jobs assigned yet.")
+                else:
+                    m1, m2, m3 = st.columns(3)
+                    queued = int(team_jobs[team_jobs["status"] == "Queued"]["cnt"].sum()) if "Queued" in team_jobs["status"].values else 0
+                    in_prog = int(team_jobs[team_jobs["status"] == "In Progress"]["cnt"].sum()) if "In Progress" in team_jobs["status"].values else 0
+                    done = int(team_jobs[team_jobs["status"] == "Done"]["cnt"].sum()) if "Done" in team_jobs["status"].values else 0
+                    m1.metric("Queued", queued)
+                    m2.metric("In Progress", in_prog)
+                    m3.metric("Done", done)
+                recent = fetch_df("SELECT id, request, status, updated_at FROM ai_jobs WHERE assigned_agent = ? ORDER BY updated_at DESC LIMIT 5", [name])
+                if not recent.empty:
+                    st.dataframe(recent, use_container_width=True, hide_index=True)
+
+    # -- AI Workers sub-tab --
+    with job_section_ai:
+        st.subheader("AI Workers")
+        jobs = fetch_df("SELECT id, assigned_agent, reviewer_agent, job_type, company, request, owner, priority, status, route_reason, output FROM ai_jobs ORDER BY id DESC")
+
+        view_agents = ["All"] + sorted([a for a in jobs["assigned_agent"].dropna().unique().tolist() if a]) if not jobs.empty else ["All"]
+        vf1, vf2 = st.columns(2)
+        with vf1:
+            agent_view = st.selectbox("Filter by agent", view_agents, key="ai_filter_agent")
+        with vf2:
+            status_view = st.selectbox("Filter by status", ["All", "Queued", "In Progress", "Done", "Blocked"], key="ai_filter_status")
+
+        filtered_jobs = jobs.copy()
+        if agent_view != "All":
+            filtered_jobs = filtered_jobs[filtered_jobs["assigned_agent"] == agent_view]
+        if status_view != "All":
+            filtered_jobs = filtered_jobs[filtered_jobs["status"] == status_view]
+
+        # Summary table with status pills
+        if not filtered_jobs.empty:
+            agent_emojis = {n: i["emoji"] for n, i in AGENTS.items()}
+            # Build display with HTML pills
+            rows_html = ""
+            for _, jrow in filtered_jobs.iterrows():
+                ae = agent_emojis.get(jrow["assigned_agent"], "🤖")
+                req_snippet = str(jrow["request"])[:60] + ("…" if len(str(jrow["request"])) > 60 else "")
+                status_badge = pill(jrow["status"])
+                pri_badge = pill(jrow["priority"])
+                rows_html += f"""<tr>
+                  <td style="padding:6px 10px;font-size:13px;color:#6B7280;">#{int(jrow['id'])}</td>
+                  <td style="padding:6px 10px;font-size:13px;">{ae} {jrow['assigned_agent']}</td>
+                  <td style="padding:6px 10px;font-size:13px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{req_snippet}</td>
+                  <td style="padding:6px 10px;">{status_badge}</td>
+                  <td style="padding:6px 10px;">{pri_badge}</td>
+                </tr>"""
+            st.markdown(f"""
+            <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;">
+              <thead>
+                <tr style="background:#F9FAFB;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:#6B7280;">
+                  <th style="padding:8px 10px;text-align:left;font-weight:600;">ID</th>
+                  <th style="padding:8px 10px;text-align:left;font-weight:600;">Agent</th>
+                  <th style="padding:8px 10px;text-align:left;font-weight:600;">Request</th>
+                  <th style="padding:8px 10px;text-align:left;font-weight:600;">Status</th>
+                  <th style="padding:8px 10px;text-align:left;font-weight:600;">Priority</th>
+                </tr>
+              </thead>
+              <tbody>{rows_html}</tbody>
+            </table>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("No jobs match filters.")
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # Clear done button
+        done_count = int(fetch_df("SELECT COUNT(*) as cnt FROM ai_jobs WHERE status='Done'").iloc[0]["cnt"] or 0)
+        if done_count > 0:
+            if st.button(f"🗑️ Clear all done jobs ({done_count})", key="clear_done_jobs"):
+                from db import get_conn
+                with get_conn() as conn:
+                    conn.execute("DELETE FROM ai_job_events WHERE job_id IN (SELECT id FROM ai_jobs WHERE status='Done')")
+                    conn.execute("DELETE FROM ai_jobs WHERE status='Done'")
+                st.rerun()
+
+        # Per-job management via expanders with status pill + dropdown reassign
+        st.markdown("##### Manage Jobs")
+        manage_jobs = fetch_df("SELECT id, assigned_agent, status, request, priority FROM ai_jobs ORDER BY id DESC LIMIT 50")
+        if not manage_jobs.empty:
+            priority_icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
+            for _, jrow in manage_jobs.iterrows():
+                jid = int(jrow["id"])
+                agent_emoji = AGENTS.get(jrow["assigned_agent"], {}).get("emoji", "🤖")
+                pi = priority_icons.get(jrow["priority"], "⚪")
+                req_short = str(jrow["request"])[:55]
+                with st.expander(f"{pi} #{jid} — {agent_emoji} {jrow['assigned_agent']} · {req_short}", expanded=False):
+                    full_job = fetch_df("SELECT * FROM ai_jobs WHERE id = ?", [jid]).iloc[0].to_dict()
+
+                    # Status pill display
+                    st.markdown(pill(jrow["status"]), unsafe_allow_html=True)
+
+                    # Status + Reassign row
+                    jr1, jr2 = st.columns(2)
+                    with jr1:
+                        new_status_j = st.selectbox("Status", ["Queued", "In Progress", "Done", "Blocked"],
+                                                    index=["Queued", "In Progress", "Done", "Blocked"].index(jrow["status"]) if jrow["status"] in ["Queued", "In Progress", "Done", "Blocked"] else 0,
+                                                    key=f"js_{jid}")
+                    with jr2:
+                        all_names = list(AGENTS.keys())
+                        current_idx = all_names.index(jrow["assigned_agent"]) if jrow["assigned_agent"] in all_names else 0
+                        new_agent = st.selectbox("Reassign to", all_names, index=current_idx, key=f"ja_{jid}")
+
+                    jb1, jb2, jb3 = st.columns(3)
+                    with jb1:
+                        if st.button("💾 Save", key=f"jsave_{jid}", use_container_width=True):
+                            update_ai_job(jid, {"status": new_status_j, "assigned_agent": new_agent, "route_reason": f"manual → {new_agent}"})
+                            st.rerun()
+                    with jb2:
+                        if st.button("📄 Clone", key=f"jclone_{jid}", use_container_width=True):
+                            add_ai_job({"job_type": full_job.get("job_type", "assistant"), "company": full_job.get("company", ""),
+                                       "request": full_job.get("request", ""), "owner": full_job.get("owner", ""),
+                                       "priority": full_job.get("priority", "Medium"), "status": "Queued", "output": "",
+                                       "assigned_agent": full_job.get("assigned_agent", "Mr Brain"),
+                                       "reviewer_agent": "", "route_reason": f"cloned from #{jid}"}); st.rerun()
+                    with jb3:
+                        if st.button("🗑️ Delete", key=f"jdel_{jid}", use_container_width=True):
+                            from db import get_conn
+                            with get_conn() as conn:
+                                conn.execute("DELETE FROM ai_job_events WHERE job_id=?", [jid])
+                                conn.execute("DELETE FROM ai_jobs WHERE id=?", [jid])
+                            st.rerun()
+
+                    if full_job.get("output"):
+                        with st.expander("📄 View Output"):
+                            st.markdown(str(full_job["output"]))
+
+                    if full_job.get("route_reason"):
+                        st.caption(f"Routing: {full_job['route_reason']}")
+
+        with st.expander("➕ Queue AI job"):
+            j_type = st.selectbox("Type", ["assistant", "graphic", "video", "copy", "programmer"])
+            j_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="jcompany")
+            j_req = st.text_area("Request")
+            j_owner = st.text_input("Owner", key="jowner")
+            j_priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="jpriority")
+            decision = route_decision(j_req, j_type, routing_cfg)
+            st.caption(f"Suggested: **{decision['primary']}** — {decision['reason']}")
+            all_agent_names = list(AGENTS.keys())
+            selected_agent = st.selectbox("Assigned agent", all_agent_names,
+                                          index=all_agent_names.index(decision["primary"]) if decision["primary"] in all_agent_names else 0)
+            if st.button("Add AI job"):
+                if j_req.strip():
+                    add_ai_job({"job_type": j_type, "company": j_company, "request": j_req.strip(), "owner": j_owner.strip(),
+                               "priority": j_priority, "status": "Queued", "output": "", "assigned_agent": selected_agent,
+                               "reviewer_agent": decision.get("secondary", ""), "route_reason": decision["reason"]})
+                    st.success("Queued"); st.rerun()
+
 
 # ==================== TASKS TAB ====================
 with tab_tasks:
@@ -585,23 +965,36 @@ with tab_tasks:
                  COALESCE(NULLIF(due_date,''), '9999-12-31')
     """, filter_params)
 
-    # Individual task cards with edit/delete
     if tasks.empty:
         st.info("No tasks match your filters.")
     else:
-        urgency_icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
-        status_icons = {"Open": "📋", "In Progress": "🔄", "Blocked": "🚫", "Done": "✅", "Snoozed": "💤"}
         for _, task in tasks.iterrows():
             tid = int(task["id"])
-            ui = urgency_icons.get(task["urgency"], "⚪")
-            si = status_icons.get(task["status"], "📋")
-            with st.expander(f"{ui} #{tid} — {task['title']} [{si} {task['status']}] — {task['owner'] or '—'} · {task['due_date'] or 'no date'}", expanded=False):
-                # Summary
-                st.markdown(f"**{task['company']}** · {task.get('project','') or '—'}")
-                if task.get("notes"):
-                    st.caption(f"📝 {task['notes']}")
+            urg = task["urgency"]
+            urg_css = urgency_class(urg)
+            status_badge = pill(task["status"])
+            due_str = task["due_date"] or "no date"
+            owner_str = task["owner"] or "—"
 
-                # Quick actions (3 clean buttons)
+            # Task row card with urgency stripe
+            st.markdown(f"""
+            <div class="mc-row-card {urg_css}" style="margin-bottom:6px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div style="flex:1;min-width:0;">
+                  <span style="font-size:14px;font-weight:600;color:#111827;">#{tid} — {task['title']}</span>
+                  <span style="margin-left:8px;">{status_badge}</span>
+                </div>
+                <div style="font-size:12px;color:#6B7280;white-space:nowrap;">
+                  {task['company']} · {owner_str} · {due_str}
+                </div>
+              </div>
+              {f'<div style="font-size:12px;color:#4B5563;margin-top:4px;">📝 {task["notes"]}</div>' if task.get("notes") else ""}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Actions in expander for cleaner look
+            with st.expander(f"⚙️ Actions — #{tid}", expanded=False):
+                # Quick actions
                 bc1, bc2, bc3 = st.columns(3)
                 with bc1:
                     if st.button("✅ Done", key=f"done_t_{tid}", use_container_width=True):
@@ -616,7 +1009,7 @@ with tab_tasks:
                             conn.execute("DELETE FROM tasks WHERE id=?", [tid])
                         st.rerun()
 
-                # Edit (hidden until expanded)
+                # Edit — hidden in nested expander
                 with st.expander("✏️ Edit", expanded=False):
                     ec1, ec2 = st.columns(2)
                     with ec1:
@@ -685,195 +1078,156 @@ with tab_tasks:
                     st.success("Task added")
                 st.rerun()
 
-# ==================== ESCALATIONS TAB ====================
-with tab_escalations:
-    st.subheader("Escalations needing decision")
-    esc = fetch_df("""
-        SELECT id, title, company, project, owner, urgency, due_date, notes
-        FROM tasks WHERE needs_decision = 1 AND status != 'Done'
-        ORDER BY CASE urgency WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END
-    """)
-    st.dataframe(esc, use_container_width=True, hide_index=True)
 
-# ==================== COMMS TAB ====================
-with tab_comms:
-    st.subheader("Comms triage")
-    comms = fetch_df("SELECT * FROM comms ORDER BY id DESC")
-    st.dataframe(comms, use_container_width=True, hide_index=True)
-    with st.expander("➕ Add communication item"):
-        source = st.selectbox("Source", ["Email", "Slack", "Telegram", "Customer", "Staff"], key="csource")
-        company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="ccompany")
-        subject = st.text_input("Subject", key="csubject")
-        owner = st.text_input("Owner", key="cowner")
-        priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="cpriority")
-        action = st.checkbox("Action required", value=True, key="caction")
-        escalated = st.checkbox("Escalated", value=False, key="cesc")
-        notes = st.text_area("Notes", key="cnotes")
-        if st.button("Save comm item"):
-            if subject.strip():
-                add_comm({"source": source, "company": company, "subject": subject.strip(), "owner": owner.strip(),
-                          "priority": priority, "action_required": 1 if action else 0, "escalated": 1 if escalated else 0,
-                          "status": "Open", "notes": notes.strip()})
-                st.success("Added"); st.rerun()
+# ==================== INBOX TAB (Escalations + Comms + Trends + Feedback) ====================
+with tab_inbox:
+    inbox_esc, inbox_comms, inbox_trends, inbox_feedback = st.tabs(
+        ["🚨 Escalations", "📨 Comms", "🔍 Trends", "💬 Feedback"]
+    )
 
-# ==================== AI WORKERS TAB ====================
-with tab_ai:
-    st.subheader("AI Workers")
-    jobs = fetch_df("SELECT id, assigned_agent, reviewer_agent, job_type, company, request, owner, priority, status, route_reason, output FROM ai_jobs ORDER BY id DESC")
+    # -- Escalations --
+    with inbox_esc:
+        st.subheader("Escalations needing decision")
+        esc = fetch_df("""
+            SELECT id, title, company, project, owner, urgency, due_date, notes
+            FROM tasks WHERE needs_decision = 1 AND status != 'Done'
+            ORDER BY CASE urgency WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END
+        """)
+        if esc.empty:
+            st.markdown('<div class="mc-alert mc-alert-success">✅ No escalations pending</div>', unsafe_allow_html=True)
+        else:
+            for _, row in esc.iterrows():
+                urg_css = urgency_class(row["urgency"])
+                urg_badge = pill(row["urgency"])
+                st.markdown(f"""
+                <div class="mc-row-card {urg_css}" style="margin-bottom:6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div><span style="font-size:14px;font-weight:600;">#{int(row['id'])} — {row['title']}</span> {urg_badge}</div>
+                    <div style="font-size:12px;color:#6B7280;">{row['company']} · {row.get('owner','—')} · {row.get('due_date','no date')}</div>
+                  </div>
+                  {f'<div style="font-size:12px;color:#4B5563;margin-top:4px;">{row["notes"]}</div>' if row.get("notes") else ""}
+                </div>
+                """, unsafe_allow_html=True)
 
-    view_agents = ["All"] + sorted([a for a in jobs["assigned_agent"].dropna().unique().tolist() if a]) if not jobs.empty else ["All"]
-    vf1, vf2 = st.columns(2)
-    with vf1:
-        agent_view = st.selectbox("Filter by agent", view_agents, key="ai_filter_agent")
-    with vf2:
-        status_view = st.selectbox("Filter by status", ["All", "Queued", "In Progress", "Done", "Blocked"], key="ai_filter_status")
+    # -- Comms --
+    with inbox_comms:
+        st.subheader("Comms triage")
+        comms = fetch_df("SELECT * FROM comms ORDER BY id DESC")
+        if comms.empty:
+            st.info("No communications logged.")
+        else:
+            # Display with status pills
+            for _, row in comms.iterrows():
+                pri_badge = pill(row.get("priority", "Medium"))
+                status_badge = pill(row.get("status", "Open"))
+                st.markdown(f"""
+                <div class="mc-row-card" style="margin-bottom:6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div><span style="font-size:14px;font-weight:600;">{row['subject']}</span> {pri_badge} {status_badge}</div>
+                    <div style="font-size:12px;color:#6B7280;">{row.get('source','—')} · {row.get('company','—')} · {row.get('owner','—')}</div>
+                  </div>
+                  {f'<div style="font-size:12px;color:#4B5563;margin-top:4px;">{row["notes"]}</div>' if row.get("notes") else ""}
+                </div>
+                """, unsafe_allow_html=True)
 
-    filtered_jobs = jobs.copy()
-    if agent_view != "All":
-        filtered_jobs = filtered_jobs[filtered_jobs["assigned_agent"] == agent_view]
-    if status_view != "All":
-        filtered_jobs = filtered_jobs[filtered_jobs["status"] == status_view]
+        with st.expander("➕ Add communication item"):
+            source = st.selectbox("Source", ["Email", "Slack", "Telegram", "Customer", "Staff"], key="csource")
+            company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="ccompany")
+            subject = st.text_input("Subject", key="csubject")
+            owner = st.text_input("Owner", key="cowner")
+            priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="cpriority")
+            action = st.checkbox("Action required", value=True, key="caction")
+            escalated = st.checkbox("Escalated", value=False, key="cesc")
+            notes = st.text_area("Notes", key="cnotes")
+            if st.button("Save comm item"):
+                if subject.strip():
+                    add_comm({"source": source, "company": company, "subject": subject.strip(), "owner": owner.strip(),
+                              "priority": priority, "action_required": 1 if action else 0, "escalated": 1 if escalated else 0,
+                              "status": "Open", "notes": notes.strip()})
+                    st.success("Added"); st.rerun()
 
-    # Clean table: show only key columns, truncate request
-    if not filtered_jobs.empty:
-        display_jobs = filtered_jobs[["id", "assigned_agent", "request", "status", "priority"]].copy()
-        display_jobs["request"] = display_jobs["request"].astype(str).str[:60]
-        agent_emojis = {n: i["emoji"] for n, i in AGENTS.items()}
-        display_jobs["assigned_agent"] = display_jobs["assigned_agent"].apply(lambda x: f"{agent_emojis.get(x, '🤖')} {x}")
-        st.dataframe(display_jobs, use_container_width=True, hide_index=True)
-    else:
-        st.info("No jobs match filters.")
+    # -- Trends --
+    with inbox_trends:
+        st.subheader("🔍 Trend Feed")
+        trends = fetch_df("SELECT * FROM trend_feed ORDER BY id DESC LIMIT 50")
+        if trends.empty:
+            st.info("No trends yet.")
+        else:
+            for _, row in trends.iterrows():
+                rel_badge = pill(row.get("relevance", "Medium"))
+                sent_color = {"positive": "#065F46", "negative": "#991B1B", "neutral": "#4B5563"}.get(row.get("sentiment", "neutral"), "#4B5563")
+                sent_bg = {"positive": "#ECFDF5", "negative": "#FEF2F2", "neutral": "#F3F4F6"}.get(row.get("sentiment", "neutral"), "#F3F4F6")
+                sent_html = f'<span style="background:{sent_bg};color:{sent_color};padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;">{row.get("sentiment","neutral")}</span>'
+                st.markdown(f"""
+                <div class="mc-row-card" style="margin-bottom:6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div><span style="font-size:14px;font-weight:600;">{row['title']}</span> {rel_badge} {sent_html}</div>
+                    <div style="font-size:12px;color:#6B7280;">{row.get('company','—')} · {row.get('category','—')}</div>
+                  </div>
+                  {f'<div style="font-size:12px;color:#4B5563;margin-top:4px;">{row["summary"]}</div>' if row.get("summary") else ""}
+                  {f'<div style="font-size:11px;margin-top:4px;"><a href="{row["source_url"]}" target="_blank" style="color:#6C5CE7;">🔗 Source</a></div>' if row.get("source_url") else ""}
+                </div>
+                """, unsafe_allow_html=True)
 
-    # Clear done button
-    done_count = int(fetch_df("SELECT COUNT(*) as cnt FROM ai_jobs WHERE status='Done'").iloc[0]["cnt"] or 0)
-    if done_count > 0:
-        if st.button(f"🗑️ Clear all done jobs ({done_count})", key="clear_done_jobs"):
-            from db import get_conn
-            with get_conn() as conn:
-                conn.execute("DELETE FROM ai_job_events WHERE job_id IN (SELECT id FROM ai_jobs WHERE status='Done')")
-                conn.execute("DELETE FROM ai_jobs WHERE status='Done'")
-            st.rerun()
+        with st.expander("➕ Add trend"):
+            tr_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="tr_co")
+            tr_cat = st.selectbox("Category", ["Competitor", "Market", "Technology", "Consumer", "Regulation", "Other"], key="tr_cat")
+            tr_title = st.text_input("Title", key="tr_title")
+            tr_summary = st.text_area("Summary", key="tr_summary")
+            tr_url = st.text_input("Source URL", key="tr_url")
+            tr_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="tr_sent")
+            tr_rel = st.selectbox("Relevance", ["Low", "Medium", "High", "Critical"], index=1, key="tr_rel")
+            if st.button("Save trend"):
+                if tr_title.strip():
+                    add_trend({"company": tr_company, "category": tr_cat, "title": tr_title.strip(),
+                              "summary": tr_summary.strip(), "source_url": tr_url.strip(), "sentiment": tr_sent, "relevance": tr_rel})
+                    st.rerun()
 
-    # Per-job management via expanders
-    st.markdown("##### Manage Jobs")
-    manage_jobs = fetch_df("SELECT id, assigned_agent, status, request, priority FROM ai_jobs ORDER BY id DESC LIMIT 50")
-    if not manage_jobs.empty:
-        status_icons_j = {"Queued": "📋", "In Progress": "🔄", "Done": "✅", "Blocked": "🚫"}
-        for _, jrow in manage_jobs.iterrows():
-            jid = int(jrow["id"])
-            si = status_icons_j.get(jrow["status"], "📋")
-            agent_emoji = AGENTS.get(jrow["assigned_agent"], {}).get("emoji", "🤖")
-            with st.expander(f"{si} #{jid} — {agent_emoji} {jrow['assigned_agent']} — {str(jrow['request'])[:50]}", expanded=False):
-                full_job = fetch_df("SELECT * FROM ai_jobs WHERE id = ?", [jid]).iloc[0].to_dict()
+    # -- Feedback --
+    with inbox_feedback:
+        st.subheader("💬 Feedback Inbox")
+        feedbacks = fetch_df("SELECT * FROM feedback_inbox ORDER BY id DESC LIMIT 100")
+        if feedbacks.empty:
+            st.info("No feedback yet.")
+        else:
+            sent_counts = feedbacks["sentiment"].value_counts()
+            s1, s2, s3 = st.columns(3)
+            s1.metric("😊 Positive", int(sent_counts.get("positive", 0)))
+            s2.metric("😐 Neutral", int(sent_counts.get("neutral", 0)))
+            s3.metric("😞 Negative", int(sent_counts.get("negative", 0)))
 
-                # Status + Reassign row
-                jr1, jr2 = st.columns(2)
-                with jr1:
-                    new_status_j = st.selectbox("Status", ["Queued", "In Progress", "Done", "Blocked"],
-                                                index=["Queued", "In Progress", "Done", "Blocked"].index(jrow["status"]) if jrow["status"] in ["Queued", "In Progress", "Done", "Blocked"] else 0,
-                                                key=f"js_{jid}")
-                with jr2:
-                    all_names = list(AGENTS.keys())
-                    current_idx = all_names.index(jrow["assigned_agent"]) if jrow["assigned_agent"] in all_names else 0
-                    new_agent = st.selectbox("Assign to", all_names, index=current_idx, key=f"ja_{jid}")
+            for _, row in feedbacks.iterrows():
+                sent_color = {"positive": "#065F46", "negative": "#991B1B", "neutral": "#4B5563"}.get(row.get("sentiment", "neutral"), "#4B5563")
+                sent_bg = {"positive": "#ECFDF5", "negative": "#FEF2F2", "neutral": "#F3F4F6"}.get(row.get("sentiment", "neutral"), "#F3F4F6")
+                sent_html = f'<span style="background:{sent_bg};color:{sent_color};padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;">{row.get("sentiment","neutral")}</span>'
+                status_badge = pill(row.get("status", "New"))
+                st.markdown(f"""
+                <div class="mc-row-card" style="margin-bottom:6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div><span style="font-size:13px;font-weight:600;">{row.get('customer','Anonymous')}</span> {sent_html} {status_badge}</div>
+                    <div style="font-size:12px;color:#6B7280;">{row.get('source','—')} · {row.get('company','—')}</div>
+                  </div>
+                  <div style="font-size:13px;color:#374151;margin-top:4px;">{str(row.get('message',''))[:150]}</div>
+                  {f'<div style="font-size:11px;color:#6B7280;margin-top:2px;">🏷️ {row["tags"]}</div>' if row.get("tags") else ""}
+                </div>
+                """, unsafe_allow_html=True)
 
-                # Action buttons (3 columns, clean)
-                jb1, jb2, jb3 = st.columns(3)
-                with jb1:
-                    if st.button("💾 Save", key=f"jsave_{jid}", use_container_width=True):
-                        update_ai_job(jid, {"status": new_status_j, "assigned_agent": new_agent, "route_reason": f"manual → {new_agent}"})
-                        st.rerun()
-                with jb2:
-                    if st.button("📄 Clone", key=f"jclone_{jid}", use_container_width=True):
-                        add_ai_job({"job_type": full_job.get("job_type", "assistant"), "company": full_job.get("company", ""),
-                                   "request": full_job.get("request", ""), "owner": full_job.get("owner", ""),
-                                   "priority": full_job.get("priority", "Medium"), "status": "Queued", "output": "",
-                                   "assigned_agent": full_job.get("assigned_agent", "Mr Brain"),
-                                   "reviewer_agent": "", "route_reason": f"cloned from #{jid}"}); st.rerun()
-                with jb3:
-                    if st.button("🗑️ Delete", key=f"jdel_{jid}", use_container_width=True):
-                        from db import get_conn
-                        with get_conn() as conn:
-                            conn.execute("DELETE FROM ai_job_events WHERE job_id=?", [jid])
-                            conn.execute("DELETE FROM ai_jobs WHERE id=?", [jid])
-                        st.rerun()
+        with st.expander("➕ Add feedback"):
+            fb_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="fb_co")
+            fb_source = st.selectbox("Source", ["Google Review", "Instagram", "TikTok", "Email", "WhatsApp", "Telegram", "In-Store", "Other"], key="fb_src")
+            fb_customer = st.text_input("Customer name", key="fb_cust")
+            fb_msg = st.text_area("Feedback message", key="fb_msg")
+            fb_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="fb_sent")
+            fb_tags = st.text_input("Tags (comma-separated)", key="fb_tags")
+            if st.button("Save feedback"):
+                if fb_msg.strip():
+                    add_feedback({"company": fb_company, "source": fb_source, "customer": fb_customer.strip(),
+                                 "message": fb_msg.strip(), "sentiment": fb_sent, "tags": fb_tags.strip(), "status": "New", "notes": ""})
+                    st.rerun()
 
-                # Output (hidden by default)
-                if full_job.get("output"):
-                    with st.expander("📄 View Output"):
-                        st.markdown(str(full_job["output"]))
 
-                if full_job.get("route_reason"):
-                    st.caption(f"Routing: {full_job['route_reason']}")
-
-    with st.expander("➕ Queue AI job"):
-        j_type = st.selectbox("Type", ["assistant", "graphic", "video", "copy", "programmer"])
-        j_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="jcompany")
-        j_req = st.text_area("Request")
-        j_owner = st.text_input("Owner", key="jowner")
-        j_priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], key="jpriority")
-        decision = route_decision(j_req, j_type, routing_cfg)
-        st.caption(f"Suggested: **{decision['primary']}** — {decision['reason']}")
-        all_agent_names = list(AGENTS.keys())
-        selected_agent = st.selectbox("Assigned agent", all_agent_names,
-                                      index=all_agent_names.index(decision["primary"]) if decision["primary"] in all_agent_names else 0)
-        if st.button("Add AI job"):
-            if j_req.strip():
-                add_ai_job({"job_type": j_type, "company": j_company, "request": j_req.strip(), "owner": j_owner.strip(),
-                           "priority": j_priority, "status": "Queued", "output": "", "assigned_agent": selected_agent,
-                           "reviewer_agent": decision.get("secondary", ""), "route_reason": decision["reason"]})
-                st.success("Queued"); st.rerun()
-
-# ==================== TRENDS TAB ====================
-with tab_trends:
-    st.subheader("🔍 Trend Feed")
-    trends = fetch_df("SELECT * FROM trend_feed ORDER BY id DESC LIMIT 50")
-    if trends.empty:
-        st.info("No trends yet.")
-    else:
-        st.dataframe(trends, use_container_width=True, hide_index=True)
-    with st.expander("➕ Add trend"):
-        tr_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="tr_co")
-        tr_cat = st.selectbox("Category", ["Competitor", "Market", "Technology", "Consumer", "Regulation", "Other"], key="tr_cat")
-        tr_title = st.text_input("Title", key="tr_title")
-        tr_summary = st.text_area("Summary", key="tr_summary")
-        tr_url = st.text_input("Source URL", key="tr_url")
-        tr_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="tr_sent")
-        tr_rel = st.selectbox("Relevance", ["Low", "Medium", "High", "Critical"], index=1, key="tr_rel")
-        if st.button("Save trend"):
-            if tr_title.strip():
-                add_trend({"company": tr_company, "category": tr_cat, "title": tr_title.strip(),
-                          "summary": tr_summary.strip(), "source_url": tr_url.strip(), "sentiment": tr_sent, "relevance": tr_rel})
-                st.rerun()
-
-# ==================== FEEDBACK TAB ====================
-with tab_feedback:
-    st.subheader("💬 Feedback Inbox")
-    feedbacks = fetch_df("SELECT * FROM feedback_inbox ORDER BY id DESC LIMIT 100")
-    if feedbacks.empty:
-        st.info("No feedback yet.")
-    else:
-        sent_counts = feedbacks["sentiment"].value_counts()
-        s1, s2, s3 = st.columns(3)
-        s1.metric("😊 Positive", int(sent_counts.get("positive", 0)))
-        s2.metric("😐 Neutral", int(sent_counts.get("neutral", 0)))
-        s3.metric("😞 Negative", int(sent_counts.get("negative", 0)))
-        st.dataframe(feedbacks, use_container_width=True, hide_index=True)
-    with st.expander("➕ Add feedback"):
-        fb_company = st.selectbox("Company", companies[1:] if len(companies) > 1 else ["Shared/Personal"], key="fb_co")
-        fb_source = st.selectbox("Source", ["Google Review", "Instagram", "TikTok", "Email", "WhatsApp", "Telegram", "In-Store", "Other"], key="fb_src")
-        fb_customer = st.text_input("Customer name", key="fb_cust")
-        fb_msg = st.text_area("Feedback message", key="fb_msg")
-        fb_sent = st.selectbox("Sentiment", ["positive", "neutral", "negative"], index=1, key="fb_sent")
-        fb_tags = st.text_input("Tags (comma-separated)", key="fb_tags")
-        if st.button("Save feedback"):
-            if fb_msg.strip():
-                add_feedback({"company": fb_company, "source": fb_source, "customer": fb_customer.strip(),
-                             "message": fb_msg.strip(), "sentiment": fb_sent, "tags": fb_tags.strip(), "status": "New", "notes": ""})
-                st.rerun()
-
-# ==================== AUTOMATION TAB ====================
-with tab_auto:
+# ==================== SETTINGS TAB (Automation) ====================
+with tab_settings:
     st.subheader("⚙️ Automation Center")
 
     st.markdown("##### 🧩 Agent Skill Registry")
