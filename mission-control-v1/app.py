@@ -142,10 +142,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- Agent avatar row ----------
-agent_cols = st.columns(4)
-for col, (name, info) in zip(agent_cols, AGENTS.items()):
-    with col:
+# ---------- Agent avatar rows (auto-wrap) ----------
+agent_items = list(AGENTS.items())
+for row_start in range(0, len(agent_items), 4):
+    row = agent_items[row_start:row_start+4]
+    agent_cols = st.columns(len(row))
+    for col, (name, info) in zip(agent_cols, row):
+      with col:
         active_count = 0
         done_count = 0
         try:
