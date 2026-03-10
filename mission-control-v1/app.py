@@ -584,7 +584,69 @@ with tab_tasks:
         ORDER BY CASE urgency WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END,
                  COALESCE(NULLIF(due_date,''), '9999-12-31')
     """, filter_params)
-    st.dataframe(tasks, use_container_width=True, hide_index=True)
+
+    # Individual task cards with edit/delete
+    if tasks.empty:
+        st.info("No tasks match your filters.")
+    else:
+        urgency_icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
+        status_icons = {"Open": "📋", "In Progress": "🔄", "Blocked": "🚫", "Done": "✅", "Snoozed": "💤"}
+        for _, task in tasks.iterrows():
+            tid = int(task["id"])
+            ui = urgency_icons.get(task["urgency"], "⚪")
+            si = status_icons.get(task["status"], "📋")
+            with st.expander(f"{ui} #{tid} — {task['title']} [{si} {task['status']}]", expanded=False):
+                # Display
+                dc1, dc2, dc3 = st.columns(3)
+                dc1.markdown(f"**Company:** {task['company']}")
+                dc2.markdown(f"**Owner:** {task['owner'] or '—'}")
+                dc3.markdown(f"**Due:** {task['due_date'] or '—'}")
+                if task.get("notes"):
+                    st.caption(f"📝 {task['notes']}")
+
+                # Edit fields
+                with st.container():
+                    ec1, ec2, ec3, ec4 = st.columns(4)
+                    with ec1:
+                        new_status = st.selectbox("Status", ["Open", "In Progress", "Blocked", "Done", "Snoozed"],
+                                                  index=["Open", "In Progress", "Blocked", "Done", "Snoozed"].index(task["status"]) if task["status"] in ["Open", "In Progress", "Blocked", "Done", "Snoozed"] else 0,
+                                                  key=f"ts_{tid}")
+                    with ec2:
+                        new_urgency = st.selectbox("Urgency", ["Low", "Medium", "High", "Critical"],
+                                                   index=["Low", "Medium", "High", "Critical"].index(task["urgency"]) if task["urgency"] in ["Low", "Medium", "High", "Critical"] else 1,
+                                                   key=f"tu_{tid}")
+                    with ec3:
+                        new_owner = st.text_input("Owner", value=task["owner"] or "", key=f"to_{tid}")
+                    with ec4:
+                        new_notes = st.text_input("Notes", value=task["notes"] or "", key=f"tn_{tid}")
+
+                # Action buttons
+                bc1, bc2, bc3, bc4, bc5 = st.columns(5)
+                with bc1:
+                    if st.button("💾 Save", key=f"save_{tid}"):
+                        update_task(tid, {"status": new_status, "urgency": new_urgency, "owner": new_owner.strip(), "notes": new_notes.strip()})
+                        st.rerun()
+                with bc2:
+                    if st.button("✅ Done", key=f"done_t_{tid}"):
+                        update_task(tid, {"status": "Done"}); st.rerun()
+                with bc3:
+                    if st.button("💤 Snooze", key=f"snz_{tid}"):
+                        update_task(tid, {"status": "Snoozed", "snooze_until": (datetime.now() + timedelta(days=1)).date().isoformat()}); st.rerun()
+                with bc4:
+                    if st.button("🤖 AI Job", key=f"aijob_{tid}"):
+                        decision = route_decision(f"{task['title']} {task.get('notes','')}", "assistant", routing_cfg)
+                        add_ai_job({"job_type": "assistant", "company": task["company"], "request": task["title"],
+                                   "owner": task.get("owner", ""), "priority": task["urgency"], "status": "Queued", "output": "",
+                                   "assigned_agent": decision["primary"], "reviewer_agent": "", "route_reason": decision["reason"]})
+                        st.success(f"AI job created → {decision['primary']}"); st.rerun()
+                with bc5:
+                    if st.button("🗑️ Delete", key=f"del_{tid}"):
+                        from db import get_conn
+                        with get_conn() as conn:
+                            conn.execute("DELETE FROM tasks WHERE id=?", [tid])
+                        st.rerun()
+
+    st.divider()
 
     with st.expander("➕ Add Task"):
         col1, col2 = st.columns(2)
@@ -607,7 +669,6 @@ with tab_tasks:
                           "due_date": t_due.isoformat() if t_due else "", "snooze_until": "",
                           "needs_decision": 1 if t_decision else 0, "notes": t_notes.strip()})
                 if t_auto_assign:
-                    import re
                     combined = f"{t_title} {t_notes} {t_project}".lower()
                     decision = route_decision(combined, "assistant", routing_cfg)
                     add_ai_job({"job_type": "assistant", "company": t_company, "request": t_title.strip(),
@@ -618,30 +679,6 @@ with tab_tasks:
                 else:
                     st.success("Task added")
                 st.rerun()
-
-    with st.expander("⚡ Quick Actions"):
-        quick_tasks = fetch_df("SELECT id, title, status FROM tasks WHERE status != 'Done' ORDER BY id DESC LIMIT 100")
-        if quick_tasks.empty:
-            st.info("No active tasks.")
-        else:
-            task_map = {f"#{row['id']} — {row['title']} ({row['status']})": int(row["id"]) for _, row in quick_tasks.iterrows()}
-            selected_label = st.selectbox("Pick task", list(task_map.keys()))
-            task_id = task_map[selected_label]
-            a1, a2, a3, a4 = st.columns(4)
-            with a1:
-                if st.button("Mark Done"):
-                    update_task(task_id, {"status": "Done"}); st.rerun()
-            with a2:
-                if st.button("Snooze +1d"):
-                    update_task(task_id, {"status": "Snoozed", "snooze_until": (datetime.now() + timedelta(days=1)).date().isoformat()}); st.rerun()
-            with a3:
-                new_owner = st.text_input("Reassign owner")
-                if st.button("Reassign") and new_owner.strip():
-                    update_task(task_id, {"owner": new_owner.strip()}); st.rerun()
-            with a4:
-                new_due = st.date_input("New deadline", key="newdue")
-                if st.button("Set deadline"):
-                    update_task(task_id, {"due_date": new_due.isoformat()}); st.rerun()
 
 # ==================== ESCALATIONS TAB ====================
 with tab_escalations:
