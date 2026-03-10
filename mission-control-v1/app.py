@@ -595,56 +595,61 @@ with tab_tasks:
             tid = int(task["id"])
             ui = urgency_icons.get(task["urgency"], "⚪")
             si = status_icons.get(task["status"], "📋")
-            with st.expander(f"{ui} #{tid} — {task['title']} [{si} {task['status']}]", expanded=False):
-                # Display
-                dc1, dc2, dc3 = st.columns(3)
-                dc1.markdown(f"**Company:** {task['company']}")
-                dc2.markdown(f"**Owner:** {task['owner'] or '—'}")
-                dc3.markdown(f"**Due:** {task['due_date'] or '—'}")
+            with st.expander(f"{ui} #{tid} — {task['title']} [{si} {task['status']}] — {task['owner'] or '—'} · {task['due_date'] or 'no date'}", expanded=False):
+                # Summary
+                st.markdown(f"**{task['company']}** · {task.get('project','') or '—'}")
                 if task.get("notes"):
                     st.caption(f"📝 {task['notes']}")
 
-                # Edit fields
-                with st.container():
-                    ec1, ec2, ec3, ec4 = st.columns(4)
-                    with ec1:
-                        new_status = st.selectbox("Status", ["Open", "In Progress", "Blocked", "Done", "Snoozed"],
-                                                  index=["Open", "In Progress", "Blocked", "Done", "Snoozed"].index(task["status"]) if task["status"] in ["Open", "In Progress", "Blocked", "Done", "Snoozed"] else 0,
-                                                  key=f"ts_{tid}")
-                    with ec2:
-                        new_urgency = st.selectbox("Urgency", ["Low", "Medium", "High", "Critical"],
-                                                   index=["Low", "Medium", "High", "Critical"].index(task["urgency"]) if task["urgency"] in ["Low", "Medium", "High", "Critical"] else 1,
-                                                   key=f"tu_{tid}")
-                    with ec3:
-                        new_owner = st.text_input("Owner", value=task["owner"] or "", key=f"to_{tid}")
-                    with ec4:
-                        new_notes = st.text_input("Notes", value=task["notes"] or "", key=f"tn_{tid}")
-
-                # Action buttons
-                bc1, bc2, bc3, bc4, bc5 = st.columns(5)
+                # Quick actions (3 clean buttons)
+                bc1, bc2, bc3 = st.columns(3)
                 with bc1:
-                    if st.button("💾 Save", key=f"save_{tid}"):
-                        update_task(tid, {"status": new_status, "urgency": new_urgency, "owner": new_owner.strip(), "notes": new_notes.strip()})
-                        st.rerun()
-                with bc2:
-                    if st.button("✅ Done", key=f"done_t_{tid}"):
+                    if st.button("✅ Done", key=f"done_t_{tid}", use_container_width=True):
                         update_task(tid, {"status": "Done"}); st.rerun()
-                with bc3:
-                    if st.button("💤 Snooze", key=f"snz_{tid}"):
+                with bc2:
+                    if st.button("💤 Snooze", key=f"snz_{tid}", use_container_width=True):
                         update_task(tid, {"status": "Snoozed", "snooze_until": (datetime.now() + timedelta(days=1)).date().isoformat()}); st.rerun()
-                with bc4:
-                    if st.button("🤖 AI Job", key=f"aijob_{tid}"):
-                        decision = route_decision(f"{task['title']} {task.get('notes','')}", "assistant", routing_cfg)
-                        add_ai_job({"job_type": "assistant", "company": task["company"], "request": task["title"],
-                                   "owner": task.get("owner", ""), "priority": task["urgency"], "status": "Queued", "output": "",
-                                   "assigned_agent": decision["primary"], "reviewer_agent": "", "route_reason": decision["reason"]})
-                        st.success(f"AI job created → {decision['primary']}"); st.rerun()
-                with bc5:
-                    if st.button("🗑️ Delete", key=f"del_{tid}"):
+                with bc3:
+                    if st.button("🗑️ Delete", key=f"del_{tid}", use_container_width=True):
                         from db import get_conn
                         with get_conn() as conn:
                             conn.execute("DELETE FROM tasks WHERE id=?", [tid])
                         st.rerun()
+
+                # Edit (hidden until expanded)
+                with st.expander("✏️ Edit", expanded=False):
+                    ec1, ec2 = st.columns(2)
+                    with ec1:
+                        new_status = st.selectbox("Status", ["Open", "In Progress", "Blocked", "Done", "Snoozed"],
+                                                  index=["Open", "In Progress", "Blocked", "Done", "Snoozed"].index(task["status"]) if task["status"] in ["Open", "In Progress", "Blocked", "Done", "Snoozed"] else 0,
+                                                  key=f"ts_{tid}")
+                        new_urgency = st.selectbox("Urgency", ["Low", "Medium", "High", "Critical"],
+                                                   index=["Low", "Medium", "High", "Critical"].index(task["urgency"]) if task["urgency"] in ["Low", "Medium", "High", "Critical"] else 1,
+                                                   key=f"tu_{tid}")
+                    with ec2:
+                        new_owner = st.text_input("Owner", value=task["owner"] or "", key=f"to_{tid}")
+                        new_notes = st.text_input("Notes", value=task["notes"] or "", key=f"tn_{tid}")
+                    sc1, sc2 = st.columns(2)
+                    with sc1:
+                        if st.button("💾 Save changes", key=f"save_{tid}", use_container_width=True):
+                            update_task(tid, {"status": new_status, "urgency": new_urgency, "owner": new_owner.strip(), "notes": new_notes.strip()})
+                            st.rerun()
+                    with sc2:
+                        if st.button("🤖 Create AI Job", key=f"aijob_{tid}", use_container_width=True):
+                            decision = route_decision(f"{task['title']} {task.get('notes','')}", "assistant", routing_cfg)
+                            add_ai_job({"job_type": "assistant", "company": task["company"], "request": task["title"],
+                                       "owner": task.get("owner", ""), "priority": task["urgency"], "status": "Queued", "output": "",
+                                       "assigned_agent": decision["primary"], "reviewer_agent": "", "route_reason": decision["reason"]})
+                            st.success(f"AI job created → {decision['primary']}"); st.rerun()
+
+    # Clear done tasks button
+    done_tasks_count = int(fetch_df("SELECT COUNT(*) as cnt FROM tasks WHERE status='Done'").iloc[0]["cnt"] or 0)
+    if done_tasks_count > 0:
+        if st.button(f"🗑️ Clear all done tasks ({done_tasks_count})", key="clear_done_tasks"):
+            from db import get_conn
+            with get_conn() as conn:
+                conn.execute("DELETE FROM tasks WHERE status='Done'")
+            st.rerun()
 
     st.divider()
 
@@ -728,62 +733,78 @@ with tab_ai:
         filtered_jobs = filtered_jobs[filtered_jobs["assigned_agent"] == agent_view]
     if status_view != "All":
         filtered_jobs = filtered_jobs[filtered_jobs["status"] == status_view]
-    st.dataframe(filtered_jobs, use_container_width=True, hide_index=True)
 
-    with st.expander("⚙️ Run / Update AI job", expanded=True):
-        active_jobs = fetch_df("SELECT id, assigned_agent, reviewer_agent, status, request FROM ai_jobs ORDER BY id DESC LIMIT 200")
-        if active_jobs.empty:
-            st.info("No AI jobs yet.")
-        else:
-            job_map = {f"#{row['id']} — {row['assigned_agent'] or 'Mr Brain'} [{row['status']}] {str(row['request'])[:60]}": int(row["id"]) for _, row in active_jobs.iterrows()}
-            selected_job_label = st.selectbox("Pick job", list(job_map.keys()))
-            selected_job_id = job_map[selected_job_label]
-            selected_row = fetch_df("SELECT * FROM ai_jobs WHERE id = ?", [selected_job_id]).iloc[0].to_dict()
+    # Clean table: show only key columns, truncate request
+    if not filtered_jobs.empty:
+        display_jobs = filtered_jobs[["id", "assigned_agent", "request", "status", "priority"]].copy()
+        display_jobs["request"] = display_jobs["request"].astype(str).str[:60]
+        agent_emojis = {n: i["emoji"] for n, i in AGENTS.items()}
+        display_jobs["assigned_agent"] = display_jobs["assigned_agent"].apply(lambda x: f"{agent_emojis.get(x, '🤖')} {x}")
+        st.dataframe(display_jobs, use_container_width=True, hide_index=True)
+    else:
+        st.info("No jobs match filters.")
 
-            if selected_row.get("route_reason"):
-                st.caption(f"Routing: {selected_row.get('route_reason')}")
+    # Clear done button
+    done_count = int(fetch_df("SELECT COUNT(*) as cnt FROM ai_jobs WHERE status='Done'").iloc[0]["cnt"] or 0)
+    if done_count > 0:
+        if st.button(f"🗑️ Clear all done jobs ({done_count})", key="clear_done_jobs"):
+            from db import get_conn
+            with get_conn() as conn:
+                conn.execute("DELETE FROM ai_job_events WHERE job_id IN (SELECT id FROM ai_jobs WHERE status='Done')")
+                conn.execute("DELETE FROM ai_jobs WHERE status='Done'")
+            st.rerun()
 
-            # Reassign buttons — show all agents
-            reassign_cols = st.columns(len(AGENTS))
-            for i, (aname, ainfo) in enumerate(AGENTS.items()):
-                with reassign_cols[i]:
-                    if st.button(f"{ainfo['emoji']}", key=f"assign_{aname}_{selected_job_id}", help=f"Assign to {aname}"):
-                        update_ai_job(selected_job_id, {"assigned_agent": aname, "route_reason": f"manual → {aname}"})
+    # Per-job management via expanders
+    st.markdown("##### Manage Jobs")
+    manage_jobs = fetch_df("SELECT id, assigned_agent, status, request, priority FROM ai_jobs ORDER BY id DESC LIMIT 50")
+    if not manage_jobs.empty:
+        status_icons_j = {"Queued": "📋", "In Progress": "🔄", "Done": "✅", "Blocked": "🚫"}
+        for _, jrow in manage_jobs.iterrows():
+            jid = int(jrow["id"])
+            si = status_icons_j.get(jrow["status"], "📋")
+            agent_emoji = AGENTS.get(jrow["assigned_agent"], {}).get("emoji", "🤖")
+            with st.expander(f"{si} #{jid} — {agent_emoji} {jrow['assigned_agent']} — {str(jrow['request'])[:50]}", expanded=False):
+                full_job = fetch_df("SELECT * FROM ai_jobs WHERE id = ?", [jid]).iloc[0].to_dict()
+
+                # Status + Reassign row
+                jr1, jr2 = st.columns(2)
+                with jr1:
+                    new_status_j = st.selectbox("Status", ["Queued", "In Progress", "Done", "Blocked"],
+                                                index=["Queued", "In Progress", "Done", "Blocked"].index(jrow["status"]) if jrow["status"] in ["Queued", "In Progress", "Done", "Blocked"] else 0,
+                                                key=f"js_{jid}")
+                with jr2:
+                    all_names = list(AGENTS.keys())
+                    current_idx = all_names.index(jrow["assigned_agent"]) if jrow["assigned_agent"] in all_names else 0
+                    new_agent = st.selectbox("Assign to", all_names, index=current_idx, key=f"ja_{jid}")
+
+                # Action buttons (3 columns, clean)
+                jb1, jb2, jb3 = st.columns(3)
+                with jb1:
+                    if st.button("💾 Save", key=f"jsave_{jid}", use_container_width=True):
+                        update_ai_job(jid, {"status": new_status_j, "assigned_agent": new_agent, "route_reason": f"manual → {new_agent}"})
+                        st.rerun()
+                with jb2:
+                    if st.button("📄 Clone", key=f"jclone_{jid}", use_container_width=True):
+                        add_ai_job({"job_type": full_job.get("job_type", "assistant"), "company": full_job.get("company", ""),
+                                   "request": full_job.get("request", ""), "owner": full_job.get("owner", ""),
+                                   "priority": full_job.get("priority", "Medium"), "status": "Queued", "output": "",
+                                   "assigned_agent": full_job.get("assigned_agent", "Mr Brain"),
+                                   "reviewer_agent": "", "route_reason": f"cloned from #{jid}"}); st.rerun()
+                with jb3:
+                    if st.button("🗑️ Delete", key=f"jdel_{jid}", use_container_width=True):
+                        from db import get_conn
+                        with get_conn() as conn:
+                            conn.execute("DELETE FROM ai_job_events WHERE job_id=?", [jid])
+                            conn.execute("DELETE FROM ai_jobs WHERE id=?", [jid])
                         st.rerun()
 
-            b1, b2, b3, b4, b5 = st.columns(5)
-            with b1:
-                if st.button("▶️ Run now"):
-                    update_ai_job(selected_job_id, {"status": "In Progress"}); st.rerun()
-            with b2:
-                if st.button("✅ Mark done"):
-                    update_ai_job(selected_job_id, {"status": "Done"}); st.rerun()
-            with b3:
-                if st.button("↩️ Re-queue"):
-                    update_ai_job(selected_job_id, {"status": "Queued"}); st.rerun()
-            with b4:
-                if st.button("📄 Clone"):
-                    add_ai_job({"job_type": selected_row.get("job_type", "assistant"), "company": selected_row.get("company", ""),
-                               "request": selected_row.get("request", ""), "owner": selected_row.get("owner", ""),
-                               "priority": selected_row.get("priority", "Medium"), "status": "Queued", "output": "",
-                               "assigned_agent": selected_row.get("assigned_agent", "Mr Brain"),
-                               "reviewer_agent": "", "route_reason": f"cloned from #{selected_job_id}"}); st.rerun()
-            with b5:
-                if st.button("🗑️ Delete"):
-                    from db import get_conn
-                    with get_conn() as conn:
-                        conn.execute("DELETE FROM ai_job_events WHERE job_id=?", [selected_job_id])
-                        conn.execute("DELETE FROM ai_jobs WHERE id=?", [selected_job_id])
-                    st.rerun()
+                # Output (hidden by default)
+                if full_job.get("output"):
+                    with st.expander("📄 View Output"):
+                        st.markdown(str(full_job["output"]))
 
-            manual_output = st.text_area("Edit output", value=selected_row.get("output", ""), height=150, key=f"out_{selected_job_id}")
-            if st.button("💾 Save output"):
-                update_ai_job(selected_job_id, {"output": manual_output}); st.rerun()
-
-            events = fetch_df("SELECT created_at, event_type, details FROM ai_job_events WHERE job_id = ? ORDER BY id DESC LIMIT 20", [selected_job_id])
-            if not events.empty:
-                st.caption("History")
-                st.dataframe(events, use_container_width=True, hide_index=True)
+                if full_job.get("route_reason"):
+                    st.caption(f"Routing: {full_job['route_reason']}")
 
     with st.expander("➕ Queue AI job"):
         j_type = st.selectbox("Type", ["assistant", "graphic", "video", "copy", "programmer"])
