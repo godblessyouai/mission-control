@@ -326,25 +326,24 @@ for row_start in range(0, len(agent_items), 4):
                 pass
             status_dot = "🟢" if active_count > 0 else "⚪"
             glow = f"box-shadow: 0 0 20px {info['color']}40;" if active_count > 0 else ""
-            st.markdown(
-                f"""
-                <div class="agent-card" style="background: linear-gradient(135deg, {info['color']}08, {info['color']}18); border: 2px solid {info['color']}30; {glow}">
-                    <div style="font-size:48px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">{info['emoji']}</div>
-                    <div style="font-weight:800; font-size:14px; margin-top:4px; color:#2d3436;">{name}</div>
-                    <div style="font-size:10px; color:{info['color']}; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">{info['role']}</div>
-                    <div style="display:flex; justify-content:center; gap:6px; margin-top:6px; font-size:10px; color:#636e72;">
-                        <span>{status_dot} {active_count} active</span>
-                        <span>·</span>
-                        <span>✅ {done_count} done</span>
-                        <span>·</span>
-                        <span>🔧 {info['skills']} skills</span>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            agent_url = f"/?agent={name.replace(' ', '+')}"
-            st.link_button(f"Open {name}", agent_url, use_container_width=True)
+            card_container = col.container(border=True)
+            with card_container:
+                st.markdown(
+                    f"""<div style="text-align:center;padding:4px 0;">
+                        <div style="font-size:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">{info['emoji']}</div>
+                        <div style="font-weight:800;font-size:13px;margin-top:4px;color:#2d3436;">{name}</div>
+                        <div style="font-size:10px;color:{info['color']};font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">{info['role']}</div>
+                        <div style="display:flex;justify-content:center;gap:6px;margin-top:6px;font-size:10px;color:#636e72;">
+                            <span>{status_dot} {active_count} active</span><span>·</span>
+                            <span>✅ {done_count} done</span><span>·</span>
+                            <span>🔧 {info['skills']} skills</span>
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                if st.button(f"{info['emoji']} Open", key=f"open_{name}", use_container_width=True):
+                    st.query_params["agent"] = name
+                    st.rerun()
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
