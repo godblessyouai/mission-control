@@ -89,6 +89,40 @@
         "legal",
         "contract"
       ]
+    },
+    {
+      "name": "Mr Spatial",
+      "skill": "mr-spatial",
+      "triggers": [
+        "xr",
+        "ar",
+        "vr",
+        "spatial",
+        "vision pro",
+        "visionos",
+        "metal",
+        "webxr",
+        "immersive",
+        "3d",
+        "cockpit"
+      ]
+    },
+    {
+      "name": "Mr QA",
+      "skill": "mr-qa",
+      "triggers": [
+        "test",
+        "qa",
+        "quality",
+        "bug",
+        "benchmark",
+        "performance",
+        "accessibility",
+        "wcag",
+        "api test",
+        "evidence",
+        "screenshot test"
+      ]
     }
   ],
   "routingPolicy": {

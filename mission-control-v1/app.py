@@ -127,8 +127,9 @@ AGENTS = {
     "Mr Design": {"emoji": "🎨", "role": "Design Lead", "color": "#E17055", "skills": 9},
     "Mr Marketing": {"emoji": "📢", "role": "Marketing Lead", "color": "#00B894", "skills": 8},
     "Mr Analytics": {"emoji": "📊", "role": "Data & Insights Lead", "color": "#6F42C1", "skills": 8},
-    "Mr Support": {"emoji": "🤝", "role": "Customer & Compliance Lead", "color": "#E84393", "skills": 6},
-
+    "Mr Support": {"emoji": "🤝", "role": "Customer & Compliance Lead", "color": "#E84393", "skills": 9},
+    "Mr Spatial": {"emoji": "🥽", "role": "Spatial Computing & XR Lead", "color": "#00CEC9", "skills": 9},
+    "Mr QA": {"emoji": "🧪", "role": "Testing & Quality Lead", "color": "#A29BFE", "skills": 11},
 }
 
 st.markdown("""
@@ -136,7 +137,7 @@ st.markdown("""
     <span style="font-size:42px;">🧭</span>
     <div>
         <h1 style="margin:0; padding:0; font-size:32px; background: linear-gradient(90deg, #6C5CE7, #0984E3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mr Kai's Mission Control</h1>
-        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 5 specialist agents</p>
+        <p style="margin:0; color:#888; font-size:14px;">Executive command center · Powered by Mr Brain + 7 specialist agents</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -554,6 +555,8 @@ with tab_office:
         "marketing": "Mr Marketing",
         "analytics": "Mr Analytics",
         "support": "Mr Support",
+        "spatial": "Mr Spatial",
+        "qa": "Mr QA",
 
     }
     update_js = "<script>document.addEventListener('DOMContentLoaded', function(){ "
