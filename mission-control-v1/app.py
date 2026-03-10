@@ -302,7 +302,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- Agent avatar rows (clickable!) ----------
+# ---------- Agent avatar rows (clickable via st.link_button) ----------
 agent_items = list(AGENTS.items())
 for row_start in range(0, len(agent_items), 4):
     row = agent_items[row_start:row_start + 4]
@@ -328,8 +328,7 @@ for row_start in range(0, len(agent_items), 4):
             glow = f"box-shadow: 0 0 20px {info['color']}40;" if active_count > 0 else ""
             st.markdown(
                 f"""
-                <div class="agent-card" style="background: linear-gradient(135deg, {info['color']}08, {info['color']}18); border: 2px solid {info['color']}30; {glow} cursor:pointer;"
-                     onclick="window.location.search='?agent={name.replace(' ', '+')}'">
+                <div class="agent-card" style="background: linear-gradient(135deg, {info['color']}08, {info['color']}18); border: 2px solid {info['color']}30; {glow}">
                     <div style="font-size:48px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">{info['emoji']}</div>
                     <div style="font-weight:800; font-size:14px; margin-top:4px; color:#2d3436;">{name}</div>
                     <div style="font-size:10px; color:{info['color']}; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">{info['role']}</div>
@@ -344,6 +343,8 @@ for row_start in range(0, len(agent_items), 4):
                 """,
                 unsafe_allow_html=True,
             )
+            agent_url = f"/?agent={name.replace(' ', '+')}"
+            st.link_button(f"Open {name}", agent_url, use_container_width=True)
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
