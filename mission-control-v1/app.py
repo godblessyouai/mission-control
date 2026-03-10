@@ -349,8 +349,13 @@ st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ---------- Read-only mode for cloud deployment ----------
 import os
-# Auto-detect Streamlit Cloud (sets STREAMLIT_SHARING_MODE) or use READONLY env var
-READONLY = os.environ.get("READONLY", "0") == "1" or "STREAMLIT_SHARING_MODE" in os.environ or os.environ.get("HOSTNAME", "").endswith("streamlit.app")
+import socket
+_hostname = socket.getfqdn().lower()
+READONLY = (
+    os.environ.get("READONLY", "0") == "1"
+    or "streamlit" in _hostname
+    or not Path.home().joinpath(".openclaw").exists()  # no OpenClaw = cloud
+)
 
 # ---------- Quick Command (hidden in read-only mode) ----------
 if not READONLY:
